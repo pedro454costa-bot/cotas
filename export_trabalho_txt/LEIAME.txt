@@ -1,0 +1,99 @@
+COMO USAR ESTES ARQUIVOS NO PC DO TRABALHO
+============================================
+
+Cada arquivo aqui e uma copia de um .py do projeto, so que renomeado para
+.txt (a maioria dos filtros de e-mail corporativo bloqueia anexos .py, mas
+deixa passar .txt).
+
+Todos os arquivos estao juntos nesta mesma pasta (sem subpastas), pra
+facilitar de anexar/baixar do e-mail. Os que pertencem a uma subpasta do
+projeto tem o nome da subpasta na frente, separado por " - ":
+
+    "pipeline - update_cda.py.txt"   -> vai para pipeline\update_cda.py
+    "db - criar_banco.py.txt"        -> vai para db\criar_banco.py
+
+Os que nao tem prefixo (config.py.txt, requirements.txt.txt) vao direto na
+raiz do projeto.
+
+PASSO 1 - Recriar a estrutura de pastas
+----------------------------------------
+No PC do trabalho, crie uma pasta para o projeto (ex: "Sistema de Cotas")
+e dentro dela crie as subpastas:
+    pipeline\
+    frontend\
+    db\
+
+PASSO 2 - Mover e renomear cada arquivo
+------------------------------------------
+Para cada arquivo .txt: tire o prefixo "pasta - " do nome (ele indica pra
+qual subpasta o arquivo vai) e tire o ".txt" do final. O que sobra e o
+nome final do arquivo .py.
+
+    config.py.txt                                     -> (raiz)\config.py
+    requirements.txt.txt                               -> (raiz)\requirements.txt
+    "db - criar_banco.py.txt"                          -> db\criar_banco.py
+    "frontend - app.py.txt"                            -> frontend\app.py
+    "frontend - analise_rapida.py.txt"                 -> frontend\analise_rapida.py
+    "pipeline - utils.py.txt"                          -> pipeline\utils.py
+    "pipeline - update_registro_fundo.py.txt"          -> pipeline\update_registro_fundo.py
+    "pipeline - update_cda.py.txt"                     -> pipeline\update_cda.py
+    "pipeline - update_prestadores_historico.py.txt"   -> pipeline\update_prestadores_historico.py
+    "pipeline - update_demonstracoes.py.txt"           -> pipeline\update_demonstracoes.py
+    "pipeline - update_classificacao_risco.py.txt"     -> pipeline\update_classificacao_risco.py
+
+Dica: no Windows, se as extensoes de arquivo estiverem visiveis (Exibir >
+Extensoes de nomes de arquivos, no Explorador), basta selecionar o arquivo,
+apertar F2 e digitar o nome final direto.
+
+Se preferir fazer tudo de uma vez pelo PowerShell, coloque todos os .txt
+baixados numa pasta (ex: Downloads\export) e rode a partir da raiz do
+projeto ja criada (com as subpastas pipeline\, frontend\, db\ vazias):
+
+    $origem = "$HOME\Downloads\export"
+    Get-ChildItem $origem -Filter *.txt | ForEach-Object {
+        $nome = $_.Name -replace '\.txt$', ''
+        if ($nome -match '^(\w+) - (.+)$') {
+            $destino = Join-Path $matches[1] $matches[2]
+        } else {
+            $destino = $nome
+        }
+        Copy-Item $_.FullName $destino
+    }
+
+PASSO 3 - Ajustar o config.py
+--------------------------------
+Abra o config.py e confira o caminho BRADESCO_LOGO_PATH - ele aponta para
+um caminho fixo deste PC (C:\Users\CLIENTE\Documents\Fato Relevante\...).
+No trabalho esse caminho provavelmente nao existe; ajuste para o caminho
+correto la, ou comente a linha se nao for usar o logo agora.
+
+PASSO 4 - Instalar o Python e as dependencias
+------------------------------------------------
+Precisa de Python 3.12 instalado. Depois, na pasta raiz do projeto:
+
+    python -m venv .venv
+    .venv\Scripts\activate
+    pip install -r requirements.txt
+
+PASSO 5 - Criar o banco
+--------------------------
+    python db\criar_banco.py
+
+Isso cria o arquivo db\cotas.db vazio, com todas as tabelas.
+
+PASSO 6 - Rodar os pipelines (nesta ordem)
+----------------------------------------------
+    python pipeline\update_registro_fundo.py
+    python pipeline\update_cda.py
+    python pipeline\update_prestadores_historico.py
+    python pipeline\update_demonstracoes.py
+    python pipeline\update_classificacao_risco.py
+
+(update_classificacao_risco.py tem que ser o ultimo - ele le o que os
+outros gravaram.)
+
+PASSO 7 - Rodar o Streamlit
+-------------------------------
+    streamlit run frontend\app.py
+
+Abre em http://localhost:8501

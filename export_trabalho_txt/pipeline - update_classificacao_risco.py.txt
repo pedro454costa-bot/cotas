@@ -1,0 +1,189 @@
+"""Pipeline de classificacao de risco - heuristica de troca de prestador + opiniao da DF.
+
+NAO e um modulo de IA - sao dois sinais simples, transparentes e 100% derivados de
+dado real ja no banco: troca de prestador (prestadores_historico) e opiniao do
+auditor na Demonstracao Financeira mais recente (demonstracoes). Quando os dois
+sinais existem para o mesmo fundo, prevalece sempre o pior dos dois.
+
+Troca de prestador:
+  ALTO  = 2+ trocas de prestador nos ultimos 12 meses
+  MEDIO = 1 troca nos ultimos 12 meses, OU 2+ trocas nos ultimos 24 meses
+  BAIXO = caso contrario (fundo com historico, mas sem trocas recentes)
+
+Opiniao do auditor (DF mais recente):
+  ALTO  = Abstencao de opiniao ou opiniao Adversa
+  MEDIO = Ressalva
+  (Sem ressalva/Dispensado nao elevam o risco)
+
+  (NULL = sem nenhum dos dois sinais para avaliar)
+
+Sem download - recalcula a partir do que ja esta no SQLite.
+
+Uso:
+    python pipeline/update_classificacao_risco.py
+"""
+
+import sys
+import time
+from datetime import date, timedelta
+from pathlib import Path
+
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from pipeline.utils import obter_conexao, registrar_log
+
+NOME_PIPELINE = "update_classificacao_risco"
+NOME_BASE_COMPETENCIA = "classificacao_risco"
+
+JANELA_12M = timedelta(days=365)
+JANELA_24M = timedelta(days=730)
+
+SEVERIDADE = {"BAIXO": 0, "MEDIO": 1, "ALTO": 2}
+
+OPINIAO_PARA_SEVERIDADE = {"RESSALVA": "MEDIO", "ABSTENCAO": "ALTO", "ADVERSA": "ALTO"}
+OPINIAO_LABEL = {"RESSALVA": "Ressalva", "ABSTENCAO": "Abstencao de opiniao", "ADVERSA": "Opiniao adversa"}
+
+
+def carregar_opinioes_recentes(conn):
+    """Opiniao do auditor da DF mais recente por fundo - so as que pesam no risco."""
+    df = pd.read_sql_query(
+        """
+        SELECT fundo_cnpj, ano_referencia, opiniao_auditor
+        FROM demonstracoes
+        WHERE opiniao_auditor IN ('RESSALVA', 'ABSTENCAO', 'ADVERSA')
+        """,
+        conn,
+    )
+    if df.empty:
+        return {}
+
+    mais_recente = df.sort_values("ano_referencia").groupby("fundo_cnpj").tail(1)
+    return {
+        linha.fundo_cnpj: (
+            OPINIAO_PARA_SEVERIDADE[linha.opiniao_auditor],
+            f"{OPINIAO_LABEL[linha.opiniao_auditor]} na DF de {linha.ano_referencia}",
+        )
+        for linha in mais_recente.itertuples(index=False)
+    }
+
+
+def combinar_classificacoes(classificacoes_prestador, opinioes_por_fundo):
+    """Une os dois sinais por fundo, mantendo sempre o pior (maior severidade)."""
+    por_prestador = {cnpj: (classificacao, motivo) for classificacao, motivo, cnpj in classificacoes_prestador}
+
+    resultado = []
+    for cnpj in por_prestador.keys() | opinioes_por_fundo.keys():
+        sinal_prestador = por_prestador.get(cnpj)
+        sinal_opiniao = opinioes_por_fundo.get(cnpj)
+
+        if sinal_prestador and sinal_opiniao:
+            classificacao = (
+                sinal_opiniao[0] if SEVERIDADE[sinal_opiniao[0]] > SEVERIDADE[sinal_prestador[0]]
+                else sinal_prestador[0]
+            )
+            motivo = f"{sinal_prestador[1]}; {sinal_opiniao[1]}"
+        else:
+            classificacao, motivo = sinal_prestador or sinal_opiniao
+
+        resultado.append((classificacao, motivo, cnpj))
+    return resultado
+
+
+def carregar_historico(conn):
+    df = pd.read_sql_query(
+        "SELECT fundo_cnpj, tipo_prestador, data_inicio, nome FROM prestadores_historico", conn
+    )
+    df["data_inicio"] = pd.to_datetime(df["data_inicio"], errors="coerce").dt.date
+    return df
+
+
+def classificar(df):
+    if df.empty:
+        return []
+
+    df = df.dropna(subset=["data_inicio"])
+    df = df.sort_values(["fundo_cnpj", "tipo_prestador", "data_inicio"])
+
+    # O primeiro registro de cada (fundo, tipo_prestador) e o prestador inicial,
+    # nao uma "troca".
+    df["eh_troca"] = df.groupby(["fundo_cnpj", "tipo_prestador"]).cumcount() > 0
+    trocas = df[df["eh_troca"]].copy()
+    if trocas.empty:
+        return []
+
+    hoje = date.today()
+    trocas_12m = trocas[trocas["data_inicio"] >= hoje - JANELA_12M]
+    trocas_24m = trocas[trocas["data_inicio"] >= hoje - JANELA_24M]
+
+    contagem_12m = trocas_12m.groupby("fundo_cnpj").size().to_dict()
+    contagem_24m = trocas_24m.groupby("fundo_cnpj").size().to_dict()
+    mais_recente = trocas.sort_values("data_inicio").groupby("fundo_cnpj").tail(1).set_index("fundo_cnpj")
+
+    resultado = []
+    for fundo_cnpj in trocas["fundo_cnpj"].unique():
+        n12 = contagem_12m.get(fundo_cnpj, 0)
+        n24 = contagem_24m.get(fundo_cnpj, 0)
+
+        if n12 >= 2:
+            classificacao = "ALTO"
+        elif n12 == 1 or n24 >= 2:
+            classificacao = "MEDIO"
+        else:
+            classificacao = "BAIXO"
+
+        ultima = mais_recente.loc[fundo_cnpj]
+        if n12 or n24:
+            motivo = (
+                f"{n12} troca(s) de prestador nos ultimos 12 meses "
+                f"(mais recente: {ultima['tipo_prestador'].capitalize()} em {ultima['data_inicio']})"
+            )
+        else:
+            motivo = "Sem trocas de prestador registradas nos ultimos 24 meses"
+
+        resultado.append((classificacao, motivo, fundo_cnpj))
+    return resultado
+
+
+def persistir(conn, classificacoes):
+    if not classificacoes:
+        return 0
+    cursor = conn.cursor()
+    cursor.executemany(
+        "UPDATE fundos SET classificacao_risco = ?, motivo_classificacao_risco = ? WHERE cnpj = ?",
+        classificacoes,
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def atualizar_classificacao_risco():
+    inicio = time.monotonic()
+    competencia = date.today().strftime("%Y%m")
+    conn = obter_conexao()
+
+    try:
+        df_historico = carregar_historico(conn)
+        classificacoes_prestador = classificar(df_historico)
+        opinioes_por_fundo = carregar_opinioes_recentes(conn)
+        classificacoes = combinar_classificacoes(classificacoes_prestador, opinioes_por_fundo)
+        atualizadas = persistir(conn, classificacoes)
+
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "SUCESSO", competencia=competencia,
+            linhas_lidas=len(df_historico), linhas_processadas=len(classificacoes),
+            linhas_inseridas=0, linhas_atualizadas=len(classificacoes),
+            linhas_ignoradas=0, duracao_segundos=time.monotonic() - inicio,
+        )
+    except Exception as exc:
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "ERRO", competencia=competencia,
+            mensagem_erro=str(exc), duracao_segundos=time.monotonic() - inicio,
+        )
+        raise
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    atualizar_classificacao_risco()

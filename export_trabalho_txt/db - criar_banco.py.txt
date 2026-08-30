@@ -1,0 +1,232 @@
+"""Cria o banco SQLite com todas as tabelas do sistema, caso ainda nao exista.
+
+Uso:
+    python db/criar_banco.py
+"""
+
+import sqlite3
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import config
+
+SQL_CRIACAO = """
+CREATE TABLE IF NOT EXISTS fundos (
+    cnpj TEXT PRIMARY KEY,
+    cd_cvm TEXT,
+    denominacao_social TEXT NOT NULL,
+    tp_fundo TEXT,
+    classe TEXT,
+    classe_anbima TEXT,
+    situacao TEXT NOT NULL,
+    id_registro_fundo TEXT,
+    id_registro_classe TEXT,
+    fundo_cnpj_pai TEXT,
+    tipo_classe TEXT,
+    data_registro DATE,
+    data_constituicao DATE,
+    data_cancelamento DATE,
+    data_inicio_situacao DATE,
+    exercicio_social_inicio DATE,
+    exercicio_social_fim DATE,
+    condominio TEXT,
+    fundo_cotas INTEGER,
+    fundo_exclusivo INTEGER,
+    publico_alvo TEXT,
+    taxa_administracao REAL,
+    taxa_performance REAL,
+    patrimonio_liquido REAL,
+    data_patrimonio_liquido DATE,
+    administrador_nome TEXT,
+    administrador_cnpj TEXT,
+    gestor_nome TEXT,
+    gestor_cpf_cnpj TEXT,
+    auditor_nome TEXT,
+    auditor_cnpj TEXT,
+    custodiante_nome TEXT,
+    custodiante_cnpj TEXT,
+    controlador_nome TEXT,
+    controlador_cnpj TEXT,
+    ativo INTEGER NOT NULL DEFAULT 1,
+    competencia_referencia TEXT,
+    classificacao_risco TEXT,
+    motivo_classificacao_risco TEXT,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS ix_fundos_situacao ON fundos(situacao);
+CREATE INDEX IF NOT EXISTS ix_fundos_classificacao_risco ON fundos(classificacao_risco);
+CREATE INDEX IF NOT EXISTS ix_fundos_fundo_cnpj_pai ON fundos(fundo_cnpj_pai);
+CREATE INDEX IF NOT EXISTS ix_fundos_administrador_nome ON fundos(administrador_nome);
+
+CREATE TABLE IF NOT EXISTS prestadores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cnpj TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    tipo_prestador TEXT NOT NULL,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (cnpj, tipo_prestador)
+);
+
+CREATE TABLE IF NOT EXISTS prestadores_historico (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fundo_cnpj TEXT NOT NULL REFERENCES fundos (cnpj),
+    prestador_id INTEGER REFERENCES prestadores (id),
+    tipo_prestador TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    data_inicio DATE,
+    data_fim DATE,
+    competencia TEXT NOT NULL,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (fundo_cnpj, tipo_prestador, data_inicio, competencia)
+);
+CREATE INDEX IF NOT EXISTS ix_hist_fundo_cnpj ON prestadores_historico(fundo_cnpj);
+
+CREATE TABLE IF NOT EXISTS cda_nodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    identificador TEXT NOT NULL,
+    tipo_no TEXT NOT NULL,
+    nome TEXT,
+    classe TEXT,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (identificador, tipo_no)
+);
+
+CREATE TABLE IF NOT EXISTS cda_edges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    no_origem_id INTEGER NOT NULL REFERENCES cda_nodes (id),
+    no_destino_id INTEGER NOT NULL REFERENCES cda_nodes (id),
+    valor REAL NOT NULL,
+    percentual_pl REAL,
+    competencia TEXT NOT NULL,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (no_origem_id, no_destino_id, competencia)
+);
+CREATE INDEX IF NOT EXISTS ix_edges_origem ON cda_edges(no_origem_id);
+
+CREATE TABLE IF NOT EXISTS demonstracoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fundo_cnpj TEXT NOT NULL REFERENCES fundos (cnpj),
+    ano_referencia INTEGER NOT NULL,
+    tipo_demonstracao TEXT,
+    opiniao_auditor TEXT,
+    arquivo_origem TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDENTE',
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (fundo_cnpj, ano_referencia, tipo_demonstracao)
+);
+
+CREATE TABLE IF NOT EXISTS demonstracoes_ai (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    demonstracao_id INTEGER NOT NULL UNIQUE REFERENCES demonstracoes (id),
+    resumo_executivo TEXT,
+    principais_riscos TEXT,
+    pontos_importantes TEXT,
+    classificacao_risco TEXT,
+    tipo_opiniao_ia TEXT,
+    impacto TEXT,
+    modelo_utilizado TEXT,
+    prompt_versao TEXT,
+    resposta_bruta_json TEXT,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS fatos_relevantes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fundo_cnpj TEXT NOT NULL REFERENCES fundos (cnpj),
+    nome_fundo TEXT,
+    titulo TEXT,
+    data_referencia DATE,
+    categoria TEXT,
+    resumo TEXT,
+    impacto TEXT,
+    plano_acao TEXT,
+    arquivo_pdf TEXT,
+    texto_extraido TEXT,
+    status_ia TEXT,
+    origem TEXT NOT NULL DEFAULT 'FATO_RELEVANTE_DB',
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (fundo_cnpj, data_referencia, arquivo_pdf)
+);
+
+CREATE TABLE IF NOT EXISTS monitoramento (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fundo_cnpj TEXT NOT NULL REFERENCES fundos (cnpj),
+    nome_fundo TEXT,
+    status TEXT NOT NULL,
+    classificacao_risco TEXT,
+    resumo TEXT,
+    data_ocorrencia DATE,
+    prazo DATE,
+    administrador TEXT,
+    gestor TEXT,
+    classe TEXT,
+    competencia TEXT,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS logs_pipeline (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome_pipeline TEXT NOT NULL,
+    data_execucao TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    status TEXT NOT NULL,
+    linhas_lidas INTEGER,
+    linhas_processadas INTEGER,
+    linhas_inseridas INTEGER,
+    linhas_atualizadas INTEGER,
+    linhas_ignoradas INTEGER,
+    duracao_segundos REAL,
+    mensagem_erro TEXT,
+    competencia TEXT,
+    criado_em TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS competencias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome_base TEXT NOT NULL,
+    competencia TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'CONCLUIDA',
+    data_processamento TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    pipeline_log_id INTEGER REFERENCES logs_pipeline (id),
+    criado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    atualizado_em TEXT DEFAULT (datetime('now', 'localtime')),
+    UNIQUE (nome_base, competencia)
+);
+"""
+
+
+# Colunas adicionadas apos a criacao inicial da tabela - ALTER TABLE nao suporta
+# "ADD COLUMN IF NOT EXISTS", entao verificamos via PRAGMA antes de aplicar.
+COLUNAS_NOVAS_DEMONSTRACOES_AI = {
+    "descricao_opiniao_modificada": "TEXT",
+    "potencial_risco_investidor": "TEXT",
+}
+
+
+def _migrar_colunas_novas(conn):
+    colunas_existentes = {linha[1] for linha in conn.execute("PRAGMA table_info(demonstracoes_ai)")}
+    for coluna, tipo in COLUNAS_NOVAS_DEMONSTRACOES_AI.items():
+        if coluna not in colunas_existentes:
+            conn.execute(f"ALTER TABLE demonstracoes_ai ADD COLUMN {coluna} {tipo}")
+
+
+def criar_banco():
+    """Cria o arquivo do banco e todas as tabelas, se ainda nao existirem."""
+    config.DB_DIR.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(config.DB_PATH)
+    conn.executescript(SQL_CRIACAO)
+    _migrar_colunas_novas(conn)
+    conn.commit()
+    conn.close()
+    print(f"Banco criado/verificado em: {config.DB_PATH}")
+
+
+if __name__ == "__main__":
+    criar_banco()

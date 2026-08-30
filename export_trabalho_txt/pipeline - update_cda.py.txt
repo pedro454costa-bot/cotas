@@ -1,0 +1,228 @@
+"""Pipeline de atualizacao do grafo de relacionamento (CDA, Bloco 2 - cotas de fundos).
+
+Descobre a competencia (mes) mais recente disponivel no diretorio da CVM, baixa so o
+Bloco 2 (posicoes em cotas de outros fundos) e o arquivo de Patrimonio Liquido (para
+calcular o % do PL de cada posicao).
+
+Uso:
+    python pipeline/update_cda.py
+"""
+
+import re
+import sys
+import time
+import zipfile
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import config
+from pipeline.utils import normalizar_cnpj, normalizar_texto, obter_conexao, registrar_log
+
+NOME_PIPELINE = "update_cda"
+NOME_BASE_COMPETENCIA = "cda"
+
+_COMPETENCIA_ZIP_RE = re.compile(r"cda_fi_(\d{6})\.zip")
+
+
+def descobrir_competencia_mais_recente():
+    response = requests.get(config.CVM_CDA_INDEX_URL, timeout=30)
+    response.raise_for_status()
+    competencias = _COMPETENCIA_ZIP_RE.findall(response.text)
+    if not competencias:
+        raise RuntimeError(f"Nenhum arquivo cda_fi_AAAAMM.zip encontrado em {config.CVM_CDA_INDEX_URL}")
+    competencia = max(competencias)
+    print(f"Competencia de CDA mais recente disponivel: {competencia}")
+    return competencia
+
+
+def baixar_e_extrair(competencia):
+    config.RAW_DIR.mkdir(parents=True, exist_ok=True)
+    url = config.CVM_CDA_ZIP_URL_TEMPLATE.format(competencia=competencia)
+    destino_zip = config.RAW_DIR / f"cda_fi_{competencia}.zip"
+
+    print(f"Baixando CDA de {url}")
+    response = requests.get(url, stream=True, timeout=120)
+    response.raise_for_status()
+    with open(destino_zip, "wb") as arquivo:
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            arquivo.write(chunk)
+
+    nome_blc2 = f"cda_fi_BLC_2_{competencia}.csv"
+    nome_pl = f"cda_fi_PL_{competencia}.csv"
+    with zipfile.ZipFile(destino_zip) as zf:
+        zf.extract(nome_blc2, config.RAW_DIR)
+        zf.extract(nome_pl, config.RAW_DIR)
+
+    return config.RAW_DIR / nome_blc2, config.RAW_DIR / nome_pl
+
+
+def ler_csv(caminho):
+    df = pd.read_csv(caminho, sep=config.CVM_CSV_SEPARATOR, encoding=config.CVM_CSV_ENCODING, dtype=str)
+    print(f"{caminho.name} lido: {len(df)} linhas, {len(df.columns)} colunas")
+    return df
+
+
+def tratar(df_blc2, df_pl, competencia):
+    df = df_blc2[[
+        "CNPJ_FUNDO_CLASSE", "DENOM_SOCIAL", "VL_MERC_POS_FINAL",
+        "CNPJ_FUNDO_CLASSE_COTA", "NM_FUNDO_CLASSE_SUBCLASSE_COTA",
+    ]].rename(columns={
+        "CNPJ_FUNDO_CLASSE": "cnpj_origem",
+        "DENOM_SOCIAL": "nome_origem",
+        "VL_MERC_POS_FINAL": "valor",
+        "CNPJ_FUNDO_CLASSE_COTA": "cnpj_destino",
+        "NM_FUNDO_CLASSE_SUBCLASSE_COTA": "nome_destino",
+    })
+
+    linhas_antes = len(df)
+    df["cnpj_origem"] = df["cnpj_origem"].apply(normalizar_cnpj)
+    df["cnpj_destino"] = df["cnpj_destino"].apply(normalizar_cnpj)
+    df["valor"] = pd.to_numeric(df["valor"].astype(str).str.replace(",", ".", regex=False), errors="coerce")
+    df = df[df["cnpj_origem"].notna() & df["cnpj_destino"].notna() & df["valor"].notna()]
+    linhas_ignoradas = linhas_antes - len(df)
+
+    df["nome_origem"] = df["nome_origem"].apply(normalizar_texto)
+    df["nome_destino"] = df["nome_destino"].apply(normalizar_texto)
+
+    # Consolida posicoes duplicadas para a mesma origem/destino (mais de um lote no
+    # mes) - o ON CONFLICT nao aceita colisao dentro do mesmo lote de insert.
+    df = df.groupby(["cnpj_origem", "cnpj_destino"], as_index=False).agg(
+        nome_origem=("nome_origem", "last"),
+        nome_destino=("nome_destino", "last"),
+        valor=("valor", "sum"),
+    )
+
+    df_pl = df_pl[["CNPJ_FUNDO_CLASSE", "VL_PATRIM_LIQ"]].rename(
+        columns={"CNPJ_FUNDO_CLASSE": "cnpj_origem", "VL_PATRIM_LIQ": "patrimonio_liquido"}
+    )
+    df_pl["cnpj_origem"] = df_pl["cnpj_origem"].apply(normalizar_cnpj)
+    df_pl["patrimonio_liquido"] = pd.to_numeric(
+        df_pl["patrimonio_liquido"].astype(str).str.replace(",", ".", regex=False), errors="coerce"
+    )
+    df_pl = df_pl.dropna(subset=["cnpj_origem"]).drop_duplicates(subset=["cnpj_origem"], keep="last")
+
+    df = df.merge(df_pl, on="cnpj_origem", how="left")
+    df["percentual_pl"] = (df["valor"] / df["patrimonio_liquido"] * 100).where(
+        df["patrimonio_liquido"].notna() & (df["patrimonio_liquido"] != 0)
+    )
+
+    df["competencia"] = competencia
+    df = df.where(pd.notnull(df), None)
+    return df, linhas_ignoradas
+
+
+def persistir(conn, df):
+    cursor = conn.cursor()
+
+    identificadores = set(df["cnpj_origem"]) | set(df["cnpj_destino"])
+    nomes_por_cnpj = {}
+    for _, row in df[["cnpj_origem", "nome_origem"]].drop_duplicates(subset=["cnpj_origem"]).iterrows():
+        nomes_por_cnpj[row["cnpj_origem"]] = row["nome_origem"]
+    for _, row in df[["cnpj_destino", "nome_destino"]].drop_duplicates(subset=["cnpj_destino"]).iterrows():
+        nomes_por_cnpj.setdefault(row["cnpj_destino"], row["nome_destino"])
+
+    classes_por_cnpj = {}
+    for chunk_inicio in range(0, len(identificadores), 500):
+        chunk = list(identificadores)[chunk_inicio:chunk_inicio + 500]
+        placeholders = ", ".join("?" for _ in chunk)
+        for cnpj, classe in cursor.execute(
+            f"SELECT cnpj, classe FROM fundos WHERE cnpj IN ({placeholders})", chunk
+        ):
+            if classe:
+                classes_por_cnpj[cnpj] = classe
+
+    nodes = [
+        (identificador, "FUNDO", nomes_por_cnpj.get(identificador), classes_por_cnpj.get(identificador))
+        for identificador in identificadores
+    ]
+    cursor.executemany(
+        """
+        INSERT INTO cda_nodes (identificador, tipo_no, nome, classe)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (identificador, tipo_no) DO UPDATE SET
+            nome = excluded.nome, classe = excluded.classe,
+            atualizado_em = datetime('now', 'localtime')
+        """,
+        nodes,
+    )
+
+    ids_por_identificador = {}
+    for chunk_inicio in range(0, len(identificadores), 500):
+        chunk = list(identificadores)[chunk_inicio:chunk_inicio + 500]
+        placeholders = ", ".join("?" for _ in chunk)
+        for identificador, id_ in cursor.execute(
+            f"SELECT identificador, id FROM cda_nodes WHERE tipo_no='FUNDO' AND identificador IN ({placeholders})",
+            chunk,
+        ):
+            ids_por_identificador[identificador] = id_
+
+    competencia = df["competencia"].iloc[0] if len(df) else None
+    edges_existentes = set()
+    if competencia:
+        edges_existentes = set(
+            cursor.execute(
+                "SELECT no_origem_id, no_destino_id FROM cda_edges WHERE competencia = ?", (competencia,)
+            )
+        )
+
+    edges = []
+    for row in df.itertuples(index=False):
+        no_origem_id = ids_por_identificador.get(row.cnpj_origem)
+        no_destino_id = ids_por_identificador.get(row.cnpj_destino)
+        if no_origem_id is None or no_destino_id is None:
+            continue
+        edges.append((no_origem_id, no_destino_id, row.valor, row.percentual_pl, row.competencia))
+
+    novas = sum(1 for e in edges if (e[0], e[1]) not in edges_existentes)
+    atualizadas = len(edges) - novas
+
+    cursor.executemany(
+        """
+        INSERT INTO cda_edges (no_origem_id, no_destino_id, valor, percentual_pl, competencia)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (no_origem_id, no_destino_id, competencia) DO UPDATE SET
+            valor = excluded.valor, percentual_pl = excluded.percentual_pl
+        """,
+        edges,
+    )
+    conn.commit()
+    return novas, atualizadas
+
+
+def atualizar_cda():
+    inicio = time.monotonic()
+    conn = obter_conexao()
+    competencia = None
+
+    try:
+        competencia = descobrir_competencia_mais_recente()
+        caminho_blc2, caminho_pl = baixar_e_extrair(competencia)
+        df_blc2_bruto = ler_csv(caminho_blc2)
+        df_pl_bruto = ler_csv(caminho_pl)
+        linhas_lidas = len(df_blc2_bruto)
+
+        df_tratado, linhas_ignoradas = tratar(df_blc2_bruto, df_pl_bruto, competencia)
+        inseridas, atualizadas = persistir(conn, df_tratado)
+
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "SUCESSO", competencia=competencia,
+            linhas_lidas=linhas_lidas, linhas_processadas=len(df_tratado),
+            linhas_inseridas=inseridas, linhas_atualizadas=atualizadas,
+            linhas_ignoradas=linhas_ignoradas, duracao_segundos=time.monotonic() - inicio,
+        )
+    except Exception as exc:
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "ERRO", competencia=competencia,
+            mensagem_erro=str(exc), duracao_segundos=time.monotonic() - inicio,
+        )
+        raise
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    atualizar_cda()

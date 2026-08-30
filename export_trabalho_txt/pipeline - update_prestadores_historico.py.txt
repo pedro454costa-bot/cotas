@@ -1,0 +1,218 @@
+"""Pipeline de atualizacao do historico de prestadores (cad_fi_hist.zip da CVM).
+
+O cadastro historico e chaveado por CNPJ_FUNDO (cadastro legado, anterior a
+Resolucao CVM 175) - traduzimos para o CNPJ da classe/standalone correspondente em
+`fundos` (via fundo_cnpj_pai ou cnpj) antes de gravar.
+
+Uso:
+    python pipeline/update_prestadores_historico.py
+"""
+
+import sys
+import time
+import zipfile
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import config
+from pipeline.utils import normalizar_cnpj, normalizar_texto, obter_conexao, registrar_log
+
+NOME_PIPELINE = "update_prestadores_historico"
+NOME_BASE_COMPETENCIA = "cad_fi_hist"
+
+# (arquivo no zip, tipo_prestador, coluna CNPJ, coluna nome, col inicio, col fim)
+ARQUIVOS_PRESTADOR = (
+    ("cad_fi_hist_admin.csv", "ADMINISTRADOR", "CNPJ_ADMIN", "ADMIN", "DT_INI_ADMIN", "DT_FIM_ADMIN"),
+    ("cad_fi_hist_gestor.csv", "GESTOR", "CPF_CNPJ_GESTOR", "GESTOR", "DT_INI_GESTOR", "DT_FIM_GESTOR"),
+    ("cad_fi_hist_auditor.csv", "AUDITOR", "CNPJ_AUDITOR", "AUDITOR", "DT_INI_AUDITOR", "DT_FIM_AUDITOR"),
+    ("cad_fi_hist_custodiante.csv", "CUSTODIANTE", "CNPJ_CUSTODIANTE", "CUSTODIANTE",
+     "DT_INI_CUSTODIANTE", "DT_FIM_CUSTODIANTE"),
+)
+
+
+def baixar_e_extrair():
+    config.RAW_DIR.mkdir(parents=True, exist_ok=True)
+    destino_zip = config.RAW_DIR / "cad_fi_hist.zip"
+
+    print(f"Baixando historico de prestadores de {config.CVM_CAD_FI_HIST_URL}")
+    response = requests.get(config.CVM_CAD_FI_HIST_URL, stream=True, timeout=120)
+    response.raise_for_status()
+    with open(destino_zip, "wb") as arquivo:
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            arquivo.write(chunk)
+
+    caminhos = {}
+    with zipfile.ZipFile(destino_zip) as zf:
+        for nome_arquivo, *_ in ARQUIVOS_PRESTADOR:
+            zf.extract(nome_arquivo, config.RAW_DIR)
+            caminhos[nome_arquivo] = config.RAW_DIR / nome_arquivo
+    return caminhos
+
+
+def ler_csv(caminho):
+    df = pd.read_csv(caminho, sep=config.CVM_CSV_SEPARATOR, encoding=config.CVM_CSV_ENCODING, dtype=str)
+    print(f"{caminho.name} lido: {len(df)} linhas, {len(df.columns)} colunas")
+    return df
+
+
+def mapa_fundo_para_classes(conn):
+    """CNPJ_FUNDO (legado) -> lista de CNPJ em `fundos` (quase sempre 1 classe hoje)."""
+    mapa = defaultdict(list)
+    for cnpj, fundo_cnpj_pai in conn.execute("SELECT cnpj, fundo_cnpj_pai FROM fundos"):
+        chave = fundo_cnpj_pai or cnpj
+        mapa[chave].append(cnpj)
+    return mapa
+
+
+def tratar_arquivo(df, tipo_prestador, col_cnpj, col_nome, col_ini, col_fim, mapa_fundos, competencia):
+    df = df[["CNPJ_FUNDO", col_cnpj, col_nome, col_ini, col_fim]].copy()
+    df["CNPJ_FUNDO"] = df["CNPJ_FUNDO"].apply(normalizar_cnpj)
+    df = df[df["CNPJ_FUNDO"].notna()]
+    df = df[df["CNPJ_FUNDO"].isin(mapa_fundos)]
+
+    df[col_nome] = df[col_nome].apply(normalizar_texto)
+    df[col_cnpj] = df[col_cnpj].apply(normalizar_cnpj)
+
+    datas_ini = pd.to_datetime(df[col_ini], errors="coerce")
+    datas_fim = pd.to_datetime(df[col_fim], errors="coerce")
+    df["data_inicio_calc"] = datas_ini.apply(lambda ts: ts.date().isoformat() if pd.notna(ts) else None)
+    df["data_fim_calc"] = datas_fim.apply(lambda ts: ts.date().isoformat() if pd.notna(ts) else None)
+    df = df[df["data_inicio_calc"].notna()]
+
+    historico = []
+    prestadores = {}
+
+    for row in df.itertuples(index=False):
+        cnpj_prestador = getattr(row, col_cnpj)
+        nome_prestador = getattr(row, col_nome)
+        # pd.notna (nao "if valor") - CPF de pessoa fisica vira NaN apos
+        # normalizar_cnpj, e NaN e truthy em Python (escaparia de "if not").
+        if pd.notna(cnpj_prestador) and pd.notna(nome_prestador):
+            prestadores[(cnpj_prestador, tipo_prestador)] = nome_prestador
+
+        for cnpj_fundo_real in mapa_fundos[row.CNPJ_FUNDO]:
+            historico.append({
+                "fundo_cnpj": cnpj_fundo_real,
+                "tipo_prestador": tipo_prestador,
+                "nome": nome_prestador,
+                "data_inicio": row.data_inicio_calc,
+                "data_fim": row.data_fim_calc,
+                "competencia": competencia,
+                "prestador_cnpj": cnpj_prestador,
+            })
+
+    return historico, prestadores
+
+
+def persistir(conn, registros_historico, prestadores_vistos):
+    cursor = conn.cursor()
+
+    prestador_rows = [
+        (cnpj, nome, tipo) for (cnpj, tipo), nome in prestadores_vistos.items()
+    ]
+    cursor.executemany(
+        """
+        INSERT INTO prestadores (cnpj, nome, tipo_prestador)
+        VALUES (?, ?, ?)
+        ON CONFLICT (cnpj, tipo_prestador) DO UPDATE SET
+            nome = excluded.nome, atualizado_em = datetime('now', 'localtime')
+        """,
+        prestador_rows,
+    )
+
+    ids_por_par = {}
+    cnpjs_prestadores = list({cnpj for cnpj, _ in prestadores_vistos})
+    for inicio in range(0, len(cnpjs_prestadores), 500):
+        chunk = cnpjs_prestadores[inicio:inicio + 500]
+        placeholders = ", ".join("?" for _ in chunk)
+        for cnpj, tipo, id_ in cursor.execute(
+            f"SELECT cnpj, tipo_prestador, id FROM prestadores WHERE cnpj IN ({placeholders})", chunk
+        ):
+            ids_por_par[(cnpj, tipo)] = id_
+
+    chaves_existentes = set(
+        cursor.execute(
+            "SELECT fundo_cnpj, tipo_prestador, data_inicio, competencia FROM prestadores_historico"
+        )
+    )
+
+    linhas = []
+    for registro in registros_historico:
+        par = (registro["prestador_cnpj"], registro["tipo_prestador"])
+        prestador_id = ids_por_par.get(par)
+        linhas.append((
+            registro["fundo_cnpj"], prestador_id, registro["tipo_prestador"], registro["nome"],
+            registro["data_inicio"], registro["data_fim"], registro["competencia"],
+        ))
+
+    chaves_novo_lote = {
+        (r["fundo_cnpj"], r["tipo_prestador"], r["data_inicio"], r["competencia"])
+        for r in registros_historico
+    }
+    inseridas = len(chaves_novo_lote - chaves_existentes)
+    atualizadas = len(chaves_novo_lote & chaves_existentes)
+
+    cursor.executemany(
+        """
+        INSERT INTO prestadores_historico
+            (fundo_cnpj, prestador_id, tipo_prestador, nome, data_inicio, data_fim, competencia)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (fundo_cnpj, tipo_prestador, data_inicio, competencia) DO UPDATE SET
+            data_fim = excluded.data_fim, nome = excluded.nome, prestador_id = excluded.prestador_id
+        """,
+        linhas,
+    )
+    conn.commit()
+    return inseridas, atualizadas
+
+
+def atualizar_prestadores_historico():
+    inicio = time.monotonic()
+    competencia = datetime.now().strftime("%Y%m")
+    conn = obter_conexao()
+
+    try:
+        caminhos = baixar_e_extrair()
+        mapa_fundos = mapa_fundo_para_classes(conn)
+
+        linhas_lidas = 0
+        registros_historico = []
+        prestadores_vistos = {}
+
+        for nome_arquivo, tipo_prestador, col_cnpj, col_nome, col_ini, col_fim in ARQUIVOS_PRESTADOR:
+            df = ler_csv(caminhos[nome_arquivo])
+            linhas_lidas += len(df)
+            historico, prestadores = tratar_arquivo(
+                df, tipo_prestador, col_cnpj, col_nome, col_ini, col_fim, mapa_fundos, competencia
+            )
+            registros_historico.extend(historico)
+            prestadores_vistos.update(prestadores)
+
+        linhas_processadas = len(registros_historico)
+        linhas_ignoradas = linhas_lidas - linhas_processadas
+
+        inseridas, atualizadas = persistir(conn, registros_historico, prestadores_vistos)
+
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "SUCESSO", competencia=competencia,
+            linhas_lidas=linhas_lidas, linhas_processadas=linhas_processadas,
+            linhas_inseridas=inseridas, linhas_atualizadas=atualizadas,
+            linhas_ignoradas=linhas_ignoradas, duracao_segundos=time.monotonic() - inicio,
+        )
+    except Exception as exc:
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "ERRO", competencia=competencia,
+            mensagem_erro=str(exc), duracao_segundos=time.monotonic() - inicio,
+        )
+        raise
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    atualizar_prestadores_historico()

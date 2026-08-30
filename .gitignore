@@ -1,0 +1,29 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Banco de dados (grande demais para o GitHub - recriar via pipelines)
+db/*.db
+db/*.bak_*
+db/*.backup_*
+
+# Dados brutos baixados da CVM (regeneraveis pelos pipelines)
+pipeline/raw/
+
+# Logs e artefatos de execucao
+*.log
+*.pid
+
+# Segredos
+.env
+*.key
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store

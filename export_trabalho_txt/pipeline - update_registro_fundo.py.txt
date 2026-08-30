@@ -1,0 +1,276 @@
+"""Pipeline de atualizacao do Cadastro de Fundos (Registro Fundo Classe da CVM).
+
+Fonte: registro_fundo_classe.zip (registro_fundo.csv + registro_classe.csv).
+Desde a Resolucao CVM 175, fundos operam em CLASSES (cada uma com CNPJ proprio) -
+por isso a tabela `fundos` e alimentada em duas partes: classes (a maioria) e
+fundos "standalone" que ainda nao tem nenhuma classe.
+
+Uso:
+    python pipeline/update_registro_fundo.py
+"""
+
+import sys
+import time
+import zipfile
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+import requests
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import config
+from pipeline.utils import normalizar_cnpj, normalizar_texto, obter_conexao, registrar_log
+
+NOME_PIPELINE = "update_registro_fundo"
+NOME_BASE_COMPETENCIA = "registro_fundo_classe"
+
+COLUNAS_FUNDO = [
+    "cnpj", "cd_cvm", "denominacao_social", "tp_fundo", "classe", "classe_anbima", "situacao",
+    "id_registro_fundo", "id_registro_classe", "fundo_cnpj_pai", "tipo_classe",
+    "data_registro", "data_constituicao", "data_cancelamento", "data_inicio_situacao",
+    "exercicio_social_inicio", "exercicio_social_fim",
+    "condominio", "fundo_cotas", "fundo_exclusivo", "publico_alvo",
+    "taxa_administracao", "taxa_performance", "patrimonio_liquido", "data_patrimonio_liquido",
+    "administrador_nome", "administrador_cnpj", "gestor_nome", "gestor_cpf_cnpj",
+    "auditor_nome", "auditor_cnpj", "custodiante_nome", "custodiante_cnpj",
+    "controlador_nome", "controlador_cnpj",
+    "ativo", "competencia_referencia",
+]
+COLUNAS_TEXTO = (
+    "denominacao_social", "tp_fundo", "classe", "classe_anbima", "situacao", "tipo_classe",
+    "condominio", "publico_alvo", "administrador_nome", "gestor_nome", "auditor_nome",
+    "custodiante_nome", "controlador_nome",
+)
+COLUNAS_DATA = (
+    "data_registro", "data_constituicao", "data_cancelamento", "data_inicio_situacao",
+    "exercicio_social_inicio", "exercicio_social_fim", "data_patrimonio_liquido",
+)
+COLUNAS_NUMERICAS = ("taxa_administracao", "taxa_performance", "patrimonio_liquido")
+COLUNAS_BOOLEANAS = ("fundo_cotas", "fundo_exclusivo")
+
+
+def baixar_e_extrair():
+    config.RAW_DIR.mkdir(parents=True, exist_ok=True)
+    destino_zip = config.RAW_DIR / "registro_fundo_classe.zip"
+
+    print(f"Baixando registro fundo/classe de {config.CVM_REGISTRO_FUNDO_CLASSE_URL}")
+    response = requests.get(config.CVM_REGISTRO_FUNDO_CLASSE_URL, stream=True, timeout=60)
+    response.raise_for_status()
+    with open(destino_zip, "wb") as arquivo:
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            arquivo.write(chunk)
+
+    with zipfile.ZipFile(destino_zip) as zf:
+        zf.extract("registro_fundo.csv", config.RAW_DIR)
+        zf.extract("registro_classe.csv", config.RAW_DIR)
+
+    return config.RAW_DIR / "registro_fundo.csv", config.RAW_DIR / "registro_classe.csv"
+
+
+def ler_csv(caminho):
+    df = pd.read_csv(caminho, sep=config.CVM_CSV_SEPARATOR, encoding=config.CVM_CSV_ENCODING, dtype=str)
+    print(f"{caminho.name} lido: {len(df)} linhas, {len(df.columns)} colunas")
+    return df
+
+
+def construir_classes(df_fundo, df_classe):
+    """Classes (registro_classe.csv) herdando administrador/gestor do fundo pai."""
+    cols_fundo = df_fundo[[
+        "ID_Registro_Fundo", "CNPJ_Fundo", "Administrador", "CNPJ_Administrador",
+        "Gestor", "CPF_CNPJ_Gestor", "Data_Inicio_Exercicio_Social", "Data_Fim_Exercicio_Social",
+    ]]
+    merged = df_classe.merge(cols_fundo, on="ID_Registro_Fundo", how="inner")
+
+    out = pd.DataFrame()
+    out["cnpj"] = merged["CNPJ_Classe"]
+    out["fundo_cnpj_pai"] = merged["CNPJ_Fundo"]
+    out["id_registro_fundo"] = merged["ID_Registro_Fundo"]
+    out["id_registro_classe"] = merged["ID_Registro_Classe"]
+    out["cd_cvm"] = merged["Codigo_CVM"]
+    out["denominacao_social"] = merged["Denominacao_Social"]
+    out["tp_fundo"] = None
+    out["tipo_classe"] = merged["Tipo_Classe"]
+    out["classe"] = merged["Classificacao"]
+    out["classe_anbima"] = merged["Classificacao_Anbima"]
+    out["situacao"] = merged["Situacao"]
+    out["data_registro"] = merged["Data_Registro"]
+    out["data_constituicao"] = merged["Data_Constituicao"]
+    out["data_cancelamento"] = None
+    out["data_inicio_situacao"] = merged["Data_Inicio_Situacao"]
+    out["exercicio_social_inicio"] = merged["Data_Inicio_Exercicio_Social"]
+    out["exercicio_social_fim"] = merged["Data_Fim_Exercicio_Social"]
+    out["condominio"] = merged["Forma_Condominio"]
+    out["fundo_cotas"] = None
+    out["fundo_exclusivo"] = merged["Exclusivo"]
+    out["publico_alvo"] = merged["Publico_Alvo"]
+    out["taxa_administracao"] = None
+    out["taxa_performance"] = None
+    out["patrimonio_liquido"] = merged["Patrimonio_Liquido"]
+    out["data_patrimonio_liquido"] = merged["Data_Patrimonio_Liquido"]
+    out["administrador_nome"] = merged["Administrador"]
+    out["administrador_cnpj"] = merged["CNPJ_Administrador"]
+    out["gestor_nome"] = merged["Gestor"]
+    out["gestor_cpf_cnpj"] = merged["CPF_CNPJ_Gestor"]
+    out["auditor_nome"] = merged["Auditor"]
+    out["auditor_cnpj"] = merged["CNPJ_Auditor"]
+    out["custodiante_nome"] = merged["Custodiante"]
+    out["custodiante_cnpj"] = merged["CNPJ_Custodiante"]
+    out["controlador_nome"] = merged["Controlador"]
+    out["controlador_cnpj"] = merged["CNPJ_Controlador"]
+    return out
+
+
+def construir_standalone(df_fundo, ids_com_classe):
+    """Fundos ainda nao adaptados a RCVM175 (sem nenhuma classe): usam o proprio CNPJ."""
+    standalone = df_fundo[~df_fundo["ID_Registro_Fundo"].isin(ids_com_classe)]
+
+    out = pd.DataFrame()
+    out["cnpj"] = standalone["CNPJ_Fundo"]
+    out["fundo_cnpj_pai"] = None
+    out["id_registro_fundo"] = standalone["ID_Registro_Fundo"]
+    out["id_registro_classe"] = None
+    out["cd_cvm"] = standalone["Codigo_CVM"]
+    out["denominacao_social"] = standalone["Denominacao_Social"]
+    out["tp_fundo"] = standalone["Tipo_Fundo"]
+    out["tipo_classe"] = standalone["Tipo_Fundo"]
+    out["classe"] = None
+    out["classe_anbima"] = None
+    out["situacao"] = standalone["Situacao"]
+    out["data_registro"] = standalone["Data_Registro"]
+    out["data_constituicao"] = standalone["Data_Constituicao"]
+    out["data_cancelamento"] = standalone["Data_Cancelamento"]
+    out["data_inicio_situacao"] = standalone["Data_Inicio_Situacao"]
+    out["exercicio_social_inicio"] = standalone["Data_Inicio_Exercicio_Social"]
+    out["exercicio_social_fim"] = standalone["Data_Fim_Exercicio_Social"]
+    out["condominio"] = None
+    out["fundo_cotas"] = None
+    out["fundo_exclusivo"] = None
+    out["publico_alvo"] = None
+    out["taxa_administracao"] = None
+    out["taxa_performance"] = None
+    out["patrimonio_liquido"] = standalone["Patrimonio_Liquido"]
+    out["data_patrimonio_liquido"] = standalone["Data_Patrimonio_Liquido"]
+    out["administrador_nome"] = standalone["Administrador"]
+    out["administrador_cnpj"] = standalone["CNPJ_Administrador"]
+    out["gestor_nome"] = standalone["Gestor"]
+    out["gestor_cpf_cnpj"] = standalone["CPF_CNPJ_Gestor"]
+    out["auditor_nome"] = None
+    out["auditor_cnpj"] = None
+    out["custodiante_nome"] = None
+    out["custodiante_cnpj"] = None
+    out["controlador_nome"] = None
+    out["controlador_cnpj"] = None
+    return out
+
+
+def tratar(df_fundo, df_classe, competencia):
+    # Exclusao de administradores Bradesco/BEM no nivel do fundo - exclui automaticamente
+    # todas as classes desse fundo quando fizermos o join.
+    admin_upper = df_fundo["Administrador"].fillna("").str.upper().str.strip()
+    contem_excluida = admin_upper.str.contains(
+        "|".join(config.ADMINISTRADORES_EXCLUIDOS_SUBSTRINGS), regex=True, na=False
+    )
+    comeca_excluida = admin_upper.str.startswith(tuple(config.ADMINISTRADORES_EXCLUIDOS_PREFIXOS))
+    df_fundo = df_fundo[~(contem_excluida | comeca_excluida)]
+
+    ids_com_classe = set(df_classe["ID_Registro_Fundo"])
+
+    df = pd.concat(
+        [construir_classes(df_fundo, df_classe), construir_standalone(df_fundo, ids_com_classe)],
+        ignore_index=True,
+    )
+
+    # Filtro de situacao valida (fonte usa Title Case; comparar em maiusculas).
+    df = df[df["situacao"].str.upper().isin(config.SITUACOES_FUNDO_VALIDAS)]
+
+    linhas_antes_cnpj = len(df)
+    df["cnpj"] = df["cnpj"].apply(normalizar_cnpj)
+    df = df[df["cnpj"].notna()]
+    linhas_ignoradas = linhas_antes_cnpj - len(df)
+
+    for coluna in ("fundo_cnpj_pai", "administrador_cnpj", "auditor_cnpj", "custodiante_cnpj", "controlador_cnpj"):
+        df[coluna] = df[coluna].apply(normalizar_cnpj)
+
+    for coluna in COLUNAS_TEXTO:
+        df[coluna] = df[coluna].apply(normalizar_texto)
+
+    for coluna in COLUNAS_DATA:
+        datas = pd.to_datetime(df[coluna], errors="coerce")
+        # .dt.date/.where reintroduzem NaT quando a coluna inteira e NaT - converter
+        # elemento a elemento garante date ISO ou None puros.
+        df[coluna] = datas.apply(lambda ts: ts.date().isoformat() if pd.notna(ts) else None)
+
+    for coluna in COLUNAS_NUMERICAS:
+        df[coluna] = pd.to_numeric(df[coluna].astype(str).str.replace(",", ".", regex=False), errors="coerce")
+
+    for coluna in COLUNAS_BOOLEANAS:
+        df[coluna] = df[coluna].map({"S": 1, "N": 0})
+
+    df = df.drop_duplicates(subset=["cnpj"], keep="last")
+    df["competencia_referencia"] = competencia
+    df["ativo"] = 1
+
+    df = df.where(pd.notnull(df), None)
+    return df[COLUNAS_FUNDO], linhas_ignoradas
+
+
+def persistir(conn, df):
+    registros = df.to_dict(orient="records")
+    cursor = conn.cursor()
+
+    existentes = {row[0] for row in cursor.execute("SELECT cnpj FROM fundos")}
+    novos_cnpjs = {r["cnpj"] for r in registros}
+    inseridas = len(novos_cnpjs - existentes)
+    atualizadas = len(novos_cnpjs & existentes)
+
+    # Marca tudo como inativo antes do lote: quem continuar no universo valido e
+    # reativado pelo upsert (ativo=1 ja vem em cada registro). Preserva historico
+    # em vez de apagar linhas de fundos que saem do universo (cancelados etc).
+    cursor.execute("UPDATE fundos SET ativo = 0 WHERE ativo = 1")
+
+    colunas_update = [c for c in COLUNAS_FUNDO if c != "cnpj"]
+    sql = f"""
+        INSERT INTO fundos ({", ".join(COLUNAS_FUNDO)})
+        VALUES ({", ".join(f":{c}" for c in COLUNAS_FUNDO)})
+        ON CONFLICT (cnpj) DO UPDATE SET
+            {", ".join(f"{c} = excluded.{c}" for c in colunas_update)},
+            atualizado_em = datetime('now', 'localtime')
+    """
+    cursor.executemany(sql, registros)
+    conn.commit()
+    return inseridas, atualizadas
+
+
+def atualizar_registro_fundo():
+    inicio = time.monotonic()
+    competencia = datetime.now().strftime("%Y%m")
+    conn = obter_conexao()
+
+    try:
+        caminho_fundo, caminho_classe = baixar_e_extrair()
+        df_fundo_bruto = ler_csv(caminho_fundo)
+        df_classe_bruto = ler_csv(caminho_classe)
+        linhas_lidas = len(df_fundo_bruto) + len(df_classe_bruto)
+
+        df_tratado, linhas_ignoradas = tratar(df_fundo_bruto, df_classe_bruto, competencia)
+        inseridas, atualizadas = persistir(conn, df_tratado)
+
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "SUCESSO", competencia=competencia,
+            linhas_lidas=linhas_lidas, linhas_processadas=len(df_tratado),
+            linhas_inseridas=inseridas, linhas_atualizadas=atualizadas,
+            linhas_ignoradas=linhas_ignoradas, duracao_segundos=time.monotonic() - inicio,
+        )
+    except Exception as exc:
+        registrar_log(
+            conn, NOME_PIPELINE, NOME_BASE_COMPETENCIA, "ERRO", competencia=competencia,
+            mensagem_erro=str(exc), duracao_segundos=time.monotonic() - inicio,
+        )
+        raise
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    atualizar_registro_fundo()
