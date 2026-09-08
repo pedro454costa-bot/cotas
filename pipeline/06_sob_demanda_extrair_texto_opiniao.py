@@ -52,6 +52,7 @@ from pypdf.errors import PdfReadError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 from pipeline.opiniao_secoes import extrair_secoes
+from pipeline.pdf_texto import extrair_texto
 from pipeline.utils import ORDEM_PRIORIDADE_ORIGEM, obter_conexao, registrar_log
 
 NOME_PIPELINE = "extrair_texto_opiniao"
@@ -295,9 +296,12 @@ def baixar_pdf(sessao, url, destino):
 
 
 def extrair_texto_pdf(caminho):
-    leitor = PdfReader(str(caminho))
-    paginas_texto = [pagina.extract_text() or "" for pagina in leitor.pages]
-    return "\n".join(paginas_texto), len(leitor.pages)
+    """Texto do PDF pelo extrator com reparo de fonte (ver pipeline/pdf_texto.py).
+
+    O pypdf puro devolvia lixo em PDF com ToUnicode quebrado - o documento parecia
+    escaneado quando na verdade era so o mapa de glifos errado."""
+    resultado = extrair_texto(str(caminho))
+    return resultado.texto, resultado.paginas
 
 
 def processar_documento(linha, sessao):

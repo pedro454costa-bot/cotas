@@ -1,6 +1,10 @@
-pandas>=2.2
-requests>=2.31
-streamlit>=1.35
-streamlit-agraph>=0.0.45
-networkx>=3.3
-jupyter>=1.0
+# Dependencias para RODAR a aplicacao (a tela).
+# O banco ja vem pronto em db/cotas.db; sqlite3 e da biblioteca padrao do Python.
+#
+#   pip install -r requirements.txt
+#   python executar.py
+#
+# Para rodar os pipelines de coleta e a analise por IA, veja requirements-pipeline.txt
+
+fastapi>=0.115
+uvicorn>=0.30

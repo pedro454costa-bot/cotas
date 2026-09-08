@@ -138,6 +138,39 @@ PADRAO_TITULO_BASE_INLINE = re.compile(
     re.IGNORECASE,
 )
 
+# Ha PDF que entrega a pagina inteira sem uma unica quebra de linha, e ai o titulo
+# fica colado no que vem antes ("...Sao Paulo SPOpiniao Examinamos as demonstracoes
+# contabeis do..."). Sem fronteira a esquerda, nem o padrao de linha nem o inline
+# casam. Esta e a ultima tentativa antes de desistir: exige que logo depois do
+# titulo venha um verbo que SO aparece na abertura do relatorio - "em nossa
+# opiniao" e "nossa auditoria" ficam de fora de proposito, porque casariam com a
+# mencao corriqueira no meio do paragrafo e com o inicio da "Base para opiniao".
+_ABERTURA_ESTRITA = "(?:{})".format("|".join([
+    _flex("examinamos", r"\s*"), _flex("auditamos", r"\s*"), _flex("revisamos", r"\s*"),
+    _flex("fomos", r"\s*") + r"\s*" + _flex("contratados", r"\s*"),
+    _flex("nao", r"\s*") + r"\s*" + _flex("expressamos", r"\s*"),
+]))
+PADRAO_TITULO_OPINIAO_COLADO = re.compile(
+    _NAO_E_PROSA + _TITULO_OPINIAO_NL + r"\s*[:\-\u2013]?\s*(?=" + _ABERTURA_ESTRITA + r")",
+    re.IGNORECASE,
+)
+
+# Ha relatorio em que o titulo "Opiniao" simplesmente nao sobrevive a extracao:
+# some no cabecalho de uma tabela, vira imagem, ou o PDF cola o paragrafo anterior
+# nele de um jeito que nenhuma fronteira reconhece. O corpo, porem, e padronizado
+# pela NBC TA 700 e comeca sempre da mesma forma. Quando nada mais casa, o recorte
+# ancora aqui - o tipo da opiniao sai do titulo "Base para ...", que costuma
+# sobreviver porque vem em linha propria.
+PADRAO_ANCORA_CORPO = re.compile(
+    r"(?:{})".format("|".join([
+        _flex("examinamos", r"\s*") + r"\s+(?:as|o)\s",
+        _flex("auditamos", r"\s*") + r"\s+(?:as|o)\s",
+        _flex("fomos", r"\s*") + r"\s+" + _flex("contratados", r"\s*"),
+        _flex("nao", r"\s*") + r"\s+" + _flex("expressamos", r"\s*"),
+    ])),
+    re.IGNORECASE,
+)
+
 # Confirma que o titulo achado abre mesmo o relatorio (e nao e uma citacao no meio
 # do paragrafo, tipo: ... descrito na secao "Base para opiniao com ressalva", ...)
 PADRAO_ABERTURA_CORPO = re.compile(_ABERTURA_CORPO_NL, re.IGNORECASE)
@@ -203,6 +236,18 @@ PADRAO_PROXIMA_SECAO = PADRAO_SECAO_CONHECIDA
 # incerteza de continuidade operacional, um "Outros assuntos" dizendo que o
 # exercicio anterior foi auditado por outro auditor, ou uma reapresentacao de
 # valores. Nada disso aparece no titulo da opiniao.
+# Nem toda ausencia de opiniao e falha de leitura. A Resolucao CVM 175 (art. 65,
+# paragrafo unico) dispensa o relatorio do auditor no primeiro exercicio de alguns
+# fundos, e ha DF que declara isso em texto. Sem separar os dois casos, um fundo
+# legitimamente dispensado fica para sempre na fila de revisao manual.
+PADRAO_DISPENSA_RELATORIO = re.compile(
+    r"(?:dispensad[ao]s?[^.]{0,80}relatorio d[oe]s? auditor"
+    r"|sem relatorio d[oe]s? auditores independentes"
+    r"|dispensad[ao]s?[^.]{0,60}auditoria independente"
+    r"|nao (?:foram|sao) auditad[ao]s)",
+    re.IGNORECASE,
+)
+
 SECOES_RELEVANTES = ("enfase", "incerteza", "outros_assuntos", "valores_correspondentes")
 
 JANELA_VARREDURA_SECOES = 40000  # o relatorio do auditor nao passa disso; o resto do PDF sao as notas
@@ -333,6 +378,10 @@ def _achar_titulo_opiniao(alvo: str, inicio_busca: int = 0):
     if match_inline:
         return match_inline, "titulo_inline"
 
+    match_colado = PADRAO_TITULO_OPINIAO_COLADO.search(alvo, inicio_busca)
+    if match_colado:
+        return match_colado, "titulo_colado"
+
     if candidatos:  # sem corpo reconhecivel: fica com o ultimo (o do corpo, nao o do sumario)
         return candidatos[-1], "titulo_em_linha_sem_corpo"
     return None, None
@@ -362,7 +411,12 @@ def extrair_secoes(texto: str) -> SecoesOpiniao:
 
     match_opiniao, metodo = _achar_titulo_opiniao(alvo)
     if match_opiniao is None:
-        return SECOES_VAZIAS._replace(metodo_recorte="titulo_opiniao_nao_localizado")
+        match_opiniao = PADRAO_ANCORA_CORPO.search(alvo)
+        if match_opiniao is None:
+            if PADRAO_DISPENSA_RELATORIO.search(alvo):
+                return SECOES_VAZIAS._replace(metodo_recorte="dispensado_sem_relatorio")
+            return SECOES_VAZIAS._replace(metodo_recorte="titulo_opiniao_nao_localizado")
+        metodo = "ancora_corpo"   # sem titulo: o tipo vem do "Base para ..."
 
     # o match inline comeca no \n anterior; nao arrasta a quebra para o recorte
     inicio_opiniao = _pular_quebras(texto, match_opiniao.start())
@@ -394,7 +448,10 @@ def extrair_secoes(texto: str) -> SecoesOpiniao:
         inicio_adicionais = match_opiniao.end()
         metodo_recorte = metodo + "+sem_base"
 
-    titulo_opiniao = _limpar_titulo(texto[inicio_opiniao : match_opiniao.end()])
+    titulo_opiniao = (
+        None if metodo == "ancora_corpo"
+        else _limpar_titulo(texto[inicio_opiniao : match_opiniao.end()])
+    )
     titulo_base = (
         _limpar_titulo(texto[_pular_quebras(texto, match_base.start()) : match_base.end()])
         if match_base is not None
@@ -410,7 +467,7 @@ def extrair_secoes(texto: str) -> SecoesOpiniao:
         secoes_adicionais=nomes_adicionais,
         titulo_opiniao=titulo_opiniao,
         titulo_base=titulo_base,
-        tipo_opiniao_detectado=classificar_tipo_opiniao(titulo_opiniao),
+        tipo_opiniao_detectado=classificar_tipo_opiniao(titulo_opiniao or titulo_base),
         metodo_recorte=metodo_recorte,
     )
 
@@ -421,7 +478,7 @@ def extrair_secoes(texto: str) -> SecoesOpiniao:
 # (09_sob_demanda_exportar_base_opiniao.py). Fica aqui, junto de extrair_secoes,
 # para as duas rotas classificarem exatamente do mesmo jeito.
 
-METODOS_SEM_RECORTE = {"texto_vazio", "titulo_opiniao_nao_localizado"}
+METODOS_SEM_RECORTE = {"texto_vazio", "titulo_opiniao_nao_localizado", "dispensado_sem_relatorio"}
 
 
 def remontar_janela(trecho_opiniao_secao: Optional[str], trecho_base_opiniao: Optional[str]) -> str:
@@ -446,9 +503,12 @@ def recortar_do_pdf(caminho: Optional[str]) -> Optional["SecoesOpiniao"]:
     if not arquivo.exists() or arquivo.stat().st_size == 0:
         return None
     try:
-        from pypdf import PdfReader
+        # pdf_texto escolhe entre PyMuPDF e pypdf e conserta a fonte quando o PDF
+        # vem com ToUnicode quebrado - era o que colocava 1.302 documentos legiveis
+        # na fila de revisao manual.
+        from pipeline.pdf_texto import extrair_texto
 
-        texto = "\n".join(pagina.extract_text() or "" for pagina in PdfReader(str(arquivo)).pages)
+        texto = extrair_texto(str(arquivo)).texto
     except Exception:  # PDF corrompido/criptografado nao pode derrubar o lote
         return None
     if not texto.strip():
@@ -459,14 +519,65 @@ def recortar_do_pdf(caminho: Optional[str]) -> Optional["SecoesOpiniao"]:
     return secoes._replace(metodo_recorte=secoes.metodo_recorte + "+pdf")
 
 
+# A CVM ja publica a opiniao classificada para parte dos documentos (campo
+# opiniao_estruturada, vindo de DFIN_FII e das cargas manuais). Quando existe, ela
+# vale mais do que qualquer heuristica nossa - e resolve inclusive os casos em que
+# nao ha PDF nenhum para ler, que e o que acontece com todo o DFIN_FII.
+_TIPOS_CVM = (
+    ("abstenc", "ABSTENCAO"),
+    ("advers", "ADVERSA"),
+    ("com ressalva", "COM_RESSALVA"),
+    ("sem ressalva", "SEM_RESSALVA"),
+)
+
+
+def classificar_opiniao_cvm(valor: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """(tipo, secoes_adicionais) a partir do texto estruturado da CVM.
+
+    "Sem ressalva e com enfase" e o caso que justifica o cuidado com a negacao:
+    a string carrega as duas palavras, e so o "com" distingue do "sem enfase"."""
+    if not valor or str(valor).lower() == "nan":
+        return None, None
+    alvo = re.sub(r"\s+", " ", normalizar(str(valor)))
+    if "dispensad" in alvo:
+        return None, None
+    tipo = next((codigo for chave, codigo in _TIPOS_CVM if chave in alvo), None)
+    adicionais = "enfase" if re.search(r"com enfase", alvo) else None
+    return tipo, adicionais
+
+
+def complementar_com_cvm(secoes: "SecoesOpiniao", opiniao_cvm: Optional[str]) -> "SecoesOpiniao":
+    """Preenche o que a leitura do PDF nao conseguiu, sem sobrescrever o que ela achou."""
+    if secoes.tipo_opiniao_detectado:
+        return secoes
+    if opiniao_cvm and "dispensad" in normalizar(str(opiniao_cvm)):
+        return secoes._replace(metodo_recorte="dispensado_sem_relatorio")
+    tipo, adicionais = classificar_opiniao_cvm(opiniao_cvm)
+    if not tipo:
+        return secoes
+    return secoes._replace(
+        tipo_opiniao_detectado=tipo,
+        secoes_adicionais=secoes.secoes_adicionais or adicionais,
+        metodo_recorte=(secoes.metodo_recorte or "") + "+classificacao_cvm",
+    )
+
+
 def classificar_triagem(secoes: "SecoesOpiniao") -> Tuple[str, str]:
     """Decide se o documento precisa mesmo passar por LLM.
 
     Opiniao sem ressalva e texto normativo identico em milhares de documentos - nao
     ha o que resumir. O que justifica a leitura e a opiniao ser modificada OU haver
     enfase / incerteza / outros assuntos, que o titulo da opiniao nao revela."""
-    if secoes.metodo_recorte in METODOS_SEM_RECORTE:
+    if secoes.metodo_recorte == "dispensado_sem_relatorio":
+        return "Nao", "dispensado_sem_relatorio_auditor"
+    if secoes.metodo_recorte in METODOS_SEM_RECORTE and not secoes.tipo_opiniao_detectado:
         return "Nao", "sem_texto_revisar_manual"
+
+    # Recorte pela ancora do corpo, sem titulo nem "Base para ...": o trecho existe
+    # mas nada no texto diz de que tipo e a opiniao. E exatamente o caso em que a
+    # LLM resolve - marcar como limpo aqui seria esconder um documento nao lido.
+    if not secoes.tipo_opiniao_detectado:
+        return "Sim", "tipo_opiniao_nao_identificado"
 
     motivos = []
     if secoes.tipo_opiniao_detectado and secoes.tipo_opiniao_detectado != "SEM_RESSALVA":

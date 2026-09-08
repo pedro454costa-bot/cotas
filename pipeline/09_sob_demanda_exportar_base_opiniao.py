@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 from pipeline.opiniao_secoes import (
     classificar_triagem,
+    complementar_com_cvm,
     extrair_secoes,
     recortar_do_pdf,
     remontar_janela,
@@ -166,6 +167,12 @@ def recortar(df: pd.DataFrame, usar_pdf: bool, workers: int) -> list:
 
 def montar_saida(df: pd.DataFrame, secoes: list) -> pd.DataFrame:
     saida = df.copy()
+    # Onde a leitura do PDF nao chegou a um tipo, vale a classificacao publicada
+    # pela propria CVM - inclusive nas linhas de DFIN_FII, que nunca tem PDF.
+    secoes = [
+        complementar_com_cvm(secao, opiniao)
+        for secao, opiniao in zip(secoes, df["opiniao_cvm"])
+    ]
     novos = pd.DataFrame(secoes, index=saida.index)
     for coluna in COLUNAS_SECOES:
         saida[coluna] = novos[coluna]

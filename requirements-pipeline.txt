@@ -1,0 +1,10 @@
+# Dependencias ADICIONAIS para os pipelines (coleta CVM, extracao de PDF, IA).
+# Nao sao necessarias para apenas abrir a tela.
+#
+#   pip install -r requirements.txt -r requirements-pipeline.txt
+
+pandas>=2.2          # tratamento das bases da CVM
+requests>=2.31       # download dos arquivos da CVM
+pypdf>=4.0           # extracao de texto das demonstracoes
+openpyxl>=3.1        # leitura/escrita dos exports em Excel
+openai>=1.60         # analise da opiniao do auditor (GPT-5 mini)

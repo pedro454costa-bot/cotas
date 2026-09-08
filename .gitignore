@@ -27,3 +27,17 @@ pipeline/raw/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Pacotes offline (wheels) - versionados de proposito, para instalar sem internet
+!offline/
+
+# Planilhas de trabalho: 128 MB e regeneraveis pelos pipelines. Os resultados
+# da IA que interessam ja estao na tabela opiniao_ia do banco.
+exports/*.xlsx
+exports/*.csv
+# As amostras de teste (100 linhas, ~100 KB) ficam: sao a referencia de
+# calibracao da matriz e precisam viajar com o codigo.
+!exports/amostra_teste_llm_100*.xlsx
+
+# Temporarios do Excel
+~$*.xlsx
