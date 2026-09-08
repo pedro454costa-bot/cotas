@@ -41,3 +41,8 @@ exports/*.csv
 
 # Temporarios do Excel
 ~$*.xlsx
+
+# Banco de distribuicao compactado (28 MB): versionado de proposito, para o
+# projeto funcionar logo apos o clone. O cotas.db de trabalho (441 MB) continua
+# fora - ver db/*.db acima.
+!db/cotas_distribuicao.db.zip

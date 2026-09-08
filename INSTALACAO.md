@@ -59,6 +59,30 @@ pip download -r requirements.txt -d offline
 
 ---
 
+## O banco de dados
+
+O repositório traz `db/cotas_distribuicao.db.zip` (28 MB). Descompacte e renomeie:
+
+```bash
+cd db
+tar -xf cotas_distribuicao.db.zip        # ou descompacte pelo Windows Explorer
+ren cotas_distribuicao.db cotas.db       # Windows
+mv cotas_distribuicao.db cotas.db        # Linux/Mac
+```
+
+São 147 MB depois de descompactado. Contém o cadastro completo, a cadeia CDA, os
+prestadores e as 2.968 análises da IA — tudo que a tela usa.
+
+O que ele **não** tem são os textos brutos extraídos dos PDFs (244 MB), usados
+apenas pelo pipeline de IA. Para reanalisar documentos na máquina de destino,
+gere um banco completo com:
+
+```bash
+python pipeline/14_sob_demanda_exportar_banco.py --completo
+```
+
+---
+
 ## Rodando
 
 ```bash
