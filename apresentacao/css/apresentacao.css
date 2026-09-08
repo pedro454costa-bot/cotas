@@ -1132,8 +1132,13 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
 .app-contadores span { font-size: 7.5px; text-transform: uppercase; letter-spacing: .06em; color: #857D75; }
 
 .app-palco {
-  display: grid; grid-template-columns: 1fr 258px; gap: 10px;
-  padding: 0 14px 14px; height: 300px;
+  display: grid;
+  grid-template-columns: 1fr clamp(300px, 24%, 400px);
+  gap: 12px;
+  padding: 0 16px 16px;
+  /* Altura proporcional a janela em vez de fixa: em monitor grande a tela
+     cresce junto, em vez de virar uma ilha no meio do slide. */
+  height: clamp(340px, 50vh, 640px);
 }
 
 .app-grafo {
