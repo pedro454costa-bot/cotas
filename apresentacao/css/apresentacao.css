@@ -581,8 +581,15 @@ body.modo-astro .vinheta {
   position: relative;
   justify-content: space-between;
   align-items: center;
-  padding: 90px 5vw;
+  /* Padding lateral pequeno: "INFRAESTRUTURA" encosta na margem esquerda e o
+     nucleo da galaxia fica com o centro livre. */
+  padding: 90px 2.5vw;
 }
+
+/* "DE IA" recua da borda direita para o interior: encostado no canto ele
+   competia com os pontos de navegacao e a composicao ficava desequilibrada,
+   com peso demais nas extremidades. */
+.astro-titulo.direita { margin-right: 9vw; }
 
 /* Titulo dividido nas laterais: o centro fica livre para a galaxia, como na
    referencia. Em tela estreita ele volta a empilhar. */
@@ -606,14 +613,19 @@ body.modo-astro .vinheta {
 }
 
 .astro-rodape {
-  position: absolute; left: 0; right: 0; bottom: 108px;
+  position: absolute; left: 0; right: 0; bottom: 92px;
   z-index: 12; text-align: center; padding: 0 6vw;
 }
 .astro-frase {
-  font-size: clamp(15px, 2.1vw, 26px);
-  font-weight: 300; letter-spacing: -.01em;
-  color: var(--tinta);
-  margin-bottom: 12px;
+  /* Bem maior que antes: e a frase que explica o titulo e precisava de peso
+     proprio - a 26px ela sumia entre o subtitulo e a galaxia. */
+  font-size: clamp(19px, 3vw, 40px);
+  font-weight: 400;
+  letter-spacing: -.022em;
+  line-height: 1.2;
+  color: #FFFFFF;
+  margin-bottom: 16px;
+  text-shadow: 0 2px 30px rgba(0,0,0,.95), 0 0 70px rgba(0,0,0,.85);
 }
 .astro-nota {
   font-size: clamp(12.5px, 1.35vw, 15px);
@@ -652,6 +664,7 @@ body.modo-astro .vinheta {
 @media (max-width: 900px) {
   .astro { flex-direction: column; justify-content: center; gap: 4px; }
   .astro-titulo { font-size: clamp(28px, 9vw, 52px); }
+  .astro-titulo.direita { margin-right: 0; }
   .astro-rodape { position: relative; bottom: auto; margin-top: 40px; }
   .universo-legenda { gap: 14px; font-size: 11.5px; }
 }
@@ -667,7 +680,7 @@ body.modo-astro .vinheta {
 .astro-rodape { position: absolute; }
 .astro-scrim {
   position: absolute; left: 50%; top: -34px; transform: translateX(-50%);
-  width: min(760px, 92vw); height: calc(100% + 68px);
+  width: min(860px, 94vw); height: calc(100% + 86px);
   background: radial-gradient(ellipse 70% 60% at 50% 50%,
               rgba(5,6,10,.95) 0%, rgba(5,6,10,.82) 45%, transparent 78%);
   filter: blur(6px);
