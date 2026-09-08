@@ -189,6 +189,79 @@
     </div>
   </section>
 
+  <!-- ─────────────────────────────── como a infraestrutura funciona -->
+  <section class="slide slide-fluxo" data-titulo="Como funciona">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">02 · Como funciona a infraestrutura</p>
+      <h2 data-anima="2">Onde a <em>IA</em> realmente atua.</h2>
+      <p class="texto" data-anima="3">
+        Nem tudo precisa de modelo. A coleta e a cadeia são determinísticas —
+        rápidas, baratas e exatas. A IA entra só onde há texto para interpretar.
+      </p>
+
+      <div class="fluxo-mapa" data-anima="4">
+        <canvas id="fluxo-linhas"></canvas>
+
+        <div class="fluxo-col col-fonte">
+          <div class="no no-fonte" data-no="cvm">
+            <span class="no-tag">FONTE</span>
+            <strong>CVM</strong>
+            <em>Dados abertos</em>
+          </div>
+        </div>
+
+        <div class="fluxo-col col-coleta">
+          <div class="no" data-no="df">
+            <span class="no-tag">1</span>
+            <strong>Demonstrações</strong>
+            <em>PDF do auditor</em>
+          </div>
+          <div class="no" data-no="fr">
+            <span class="no-tag">2</span>
+            <strong>Fatos relevantes</strong>
+            <em>Comunicados ao mercado</em>
+          </div>
+          <div class="no" data-no="cda">
+            <span class="no-tag">3</span>
+            <strong>Carteiras · CDA</strong>
+            <em>Quem investe em quem</em>
+          </div>
+        </div>
+
+        <div class="fluxo-col col-processo">
+          <div class="no no-ia" data-no="ia-df">
+            <span class="no-tag ia">IA</span>
+            <strong>Lê e classifica</strong>
+            <em>Opinião do auditor → risco</em>
+          </div>
+          <div class="no no-ia" data-no="ia-fr">
+            <span class="no-tag ia">IA</span>
+            <strong>Lê para contexto</strong>
+            <em>O que mudou desde a DF</em>
+          </div>
+          <div class="no" data-no="cadeia">
+            <span class="no-tag">SQL</span>
+            <strong>Monta a cadeia</strong>
+            <em>Exposição indireta</em>
+          </div>
+        </div>
+
+        <div class="fluxo-col col-saida">
+          <div class="no no-saida" data-no="risco">
+            <span class="no-tag">SAÍDA</span>
+            <strong>Risco do fundo</strong>
+            <em>Com justificativa e impacto</em>
+          </div>
+        </div>
+      </div>
+
+      <p class="texto nota" data-anima="5">
+        Dos 39 mil documentos, a triagem determinística resolve 61% sem custo de
+        modelo. A IA lê os 15 mil restantes — e é onde ela vale o que custa.
+      </p>
+    </div>
+  </section>
+
   <!-- 4 ──────────────────────────────────────────── a virada -->
   <section class="slide" data-titulo="A virada">
     <div class="conteudo">
@@ -389,6 +462,7 @@
 <script src="js/galaxia.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/asteroide.js"></script>
+<script src="js/fluxo.js"></script>
 <script src="js/apresentacao.js"></script>
 </body>
 </html>

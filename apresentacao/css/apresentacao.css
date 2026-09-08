@@ -619,9 +619,12 @@ body.modo-astro .vinheta {
 .astro-frase {
   /* Bem maior que antes: e a frase que explica o titulo e precisava de peso
      proprio - a 26px ela sumia entre o subtitulo e a galaxia. */
-  font-size: clamp(19px, 3vw, 40px);
+  font-size: clamp(17px, 2.7vw, 36px);
   font-weight: 400;
-  letter-spacing: -.022em;
+  /* Caixa alta pede tracking positivo: sem isso as letras se colam e o texto
+     perde legibilidade justamente no tamanho grande. */
+  text-transform: uppercase;
+  letter-spacing: .05em;
   line-height: 1.2;
   color: #FFFFFF;
   margin-bottom: 16px;
@@ -906,4 +909,97 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
 @media (max-width: 720px) {
   .portada-logo { margin-bottom: 26px; }
   .portada-titulo { margin-bottom: 30px; }
+}
+
+/* ══════════════════════════════════════════════════ fluxo da infra ═══ */
+
+.fluxo-mapa {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1.15fr 1.25fr auto;
+  gap: 0 clamp(28px, 5vw, 76px);
+  align-items: center;
+  margin: 8px 0 6px;
+  min-height: 300px;
+}
+
+/* O canvas fica ATRAS dos cartoes: as linhas entram por baixo das bordas em
+   vez de cruzarem por cima do texto. */
+#fluxo-linhas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+.fluxo-col {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column;
+  gap: 14px;
+}
+.col-fonte, .col-saida { justify-content: center; }
+
+.no {
+  padding: 12px 15px;
+  background: rgba(12,14,22,.86);
+  border: 1px solid var(--borda);
+  border-radius: 11px;
+  backdrop-filter: blur(10px);
+  transition: transform .4s var(--curva), border-color .4s, box-shadow .4s;
+}
+.no:hover { transform: translateY(-3px); border-color: rgba(110,155,255,.45); }
+.no strong { display: block; font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.no em { font-style: normal; font-size: 11.5px; color: var(--tinta-3); line-height: 1.45; }
+
+.no-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .14em;
+  padding: 2px 7px; border-radius: 20px;
+  background: rgba(255,255,255,.07);
+  color: var(--tinta-3);
+  margin-bottom: 9px;
+}
+
+/* Os nos de IA sao os unicos com cor propria e pulso. Toda a leitura do slide
+   depende de distinguir, num relance, onde ha modelo e onde ha SQL. */
+.no-ia {
+  border-color: rgba(164,123,255,.42);
+  background: linear-gradient(150deg, rgba(164,123,255,.13), rgba(12,14,22,.9) 65%);
+  box-shadow: 0 0 34px rgba(164,123,255,.14);
+}
+.no-ia:hover { border-color: rgba(164,123,255,.75); }
+.no-tag.ia {
+  background: linear-gradient(135deg, var(--violeta), #7E5BE0);
+  color: #0B0710; font-weight: 800; letter-spacing: .1em;
+  animation: pulsoIA 2.8s ease-in-out infinite;
+}
+@keyframes pulsoIA {
+  50% { box-shadow: 0 0 0 5px rgba(164,123,255,.16); }
+}
+
+.no-fonte {
+  border-color: rgba(255,255,255,.16);
+  background: rgba(20,23,33,.9);
+}
+.no-fonte strong { font-size: 17px; letter-spacing: .02em; }
+
+.no-saida {
+  border-color: rgba(79,227,208,.4);
+  background: linear-gradient(150deg, rgba(79,227,208,.12), rgba(12,14,22,.9) 65%);
+  box-shadow: 0 0 34px rgba(79,227,208,.13);
+}
+.no-saida .no-tag { background: rgba(79,227,208,.2); color: var(--ciano); }
+
+.slide-fluxo .texto { margin-bottom: 18px; }
+.slide-fluxo .texto.nota { margin-top: 16px; }
+
+@media (max-width: 1000px) {
+  .fluxo-mapa {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px clamp(20px, 6vw, 52px);
+  }
+  .col-fonte, .col-saida { grid-column: 1 / -1; align-items: center; }
+  .no { padding: 10px 13px; }
+  .no strong { font-size: 13px; }
+  .no em { font-size: 11px; }
 }
