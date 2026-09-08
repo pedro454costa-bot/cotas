@@ -24,7 +24,8 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; scroll-snap-type: y mandatory; }
+/* O snap agora vive no #palco, que e o container rolavel na horizontal. */
+html { scroll-behavior: smooth; }
 
 body {
   background: var(--preto);
@@ -32,7 +33,7 @@ body {
   font-family: var(--fonte);
   font-size: 16px;
   line-height: 1.6;
-  overflow-x: hidden;
+  overflow: hidden;   /* quem rola e o #palco, nao a pagina */
   -webkit-font-smoothing: antialiased;
 }
 
@@ -99,9 +100,11 @@ body {
   transition: width .18s var(--curva);
 }
 
+/* Num deck horizontal os pontos vao para a base: a fileira reproduz o eixo
+   em que o conteudo se move. Na lateral eles sugeriam rolagem vertical. */
 .pontos {
-  position: fixed; right: 26px; top: 50%; transform: translateY(-50%);
-  z-index: 60; display: flex; flex-direction: column; gap: 13px;
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+  z-index: 60; display: flex; flex-direction: row; gap: 13px;
 }
 .pontos button {
   width: 8px; height: 8px; padding: 0;
@@ -118,7 +121,7 @@ body {
 /* Rotulo do slide aparece ao passar o cursor no ponto. */
 .pontos button::after {
   content: attr(data-rotulo);
-  position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+  position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
   white-space: nowrap; font-size: 11px; color: var(--tinta-2);
   background: rgba(10,12,20,.9); border: 1px solid var(--borda);
   padding: 4px 9px; border-radius: 5px;
@@ -141,13 +144,29 @@ body {
 
 /* ═════════════════════════════════════════════════════════════ slides ═══ */
 
-#palco { position: relative; z-index: 10; }
+/* Deck horizontal: os slides ficam lado a lado e o palco rola no eixo X.
+   overscroll-behavior evita que o gesto "vaze" para o historico do navegador
+   ao chegar na primeira ou na ultima tela. */
+#palco {
+  position: relative; z-index: 10;
+  display: flex;
+  width: 100vw; height: 100vh;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+#palco::-webkit-scrollbar { display: none; }
 
 .slide {
-  min-height: 100vh;
-  scroll-snap-align: start;
+  flex: 0 0 100vw;
+  width: 100vw; height: 100vh;
+  scroll-snap-align: center;
   display: flex; align-items: center;
-  padding: 90px 8vw;
+  padding: 84px 7vw;
+  /* Slide denso em tela baixa rola por dentro em vez de cortar conteudo. */
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .conteudo { width: 100%; max-width: 1120px; margin: 0 auto; }
@@ -156,10 +175,12 @@ body {
 /* Cada elemento com data-anima entra ao slide ficar visivel, em cascata.
    O deslocamento e pequeno de proposito: entrada discreta le melhor que
    elemento voando da borda da tela. */
+/* Entrada pela direita, acompanhando o sentido da navegacao. Antes era
+   vertical, o que brigava com o movimento lateral do deck. */
 [data-anima] {
   opacity: 0;
-  transform: translateY(26px);
-  transition: opacity .85s var(--curva), transform .85s var(--curva);
+  transform: translateX(34px);
+  transition: opacity .8s var(--curva), transform .8s var(--curva);
 }
 .visivel [data-anima] { opacity: 1; transform: none; }
 .visivel [data-anima="1"] { transition-delay: .05s; }
@@ -241,13 +262,14 @@ h2 em {
 .rodape-capa i { width: 3px; height: 3px; border-radius: 50%; background: var(--tinta-3); }
 
 .dica-rolagem {
-  position: absolute; bottom: 42px; left: 50%; transform: translateX(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  position: absolute; bottom: 58px; right: 6vw; left: auto; transform: none;
+  display: flex; flex-direction: row; align-items: center; gap: 10px;
   font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
   color: var(--tinta-3);
 }
-.dica-rolagem svg { animation: descer 2.2s ease-in-out infinite; }
-@keyframes descer { 50% { transform: translateY(7px); opacity: .45; } }
+/* A seta gira para a direita: aponta o sentido real da navegacao. */
+.dica-rolagem svg { transform: rotate(-90deg); animation: avancar 2.2s ease-in-out infinite; }
+@keyframes avancar { 50% { transform: rotate(-90deg) translateY(7px); opacity: .45; } }
 
 /* ────────────────────────────────────────────────── grade do "antes" ─── */
 
@@ -613,7 +635,7 @@ body.modo-astro .vinheta {
 }
 
 .astro-rodape {
-  position: absolute; left: 0; right: 0; bottom: 92px;
+  position: absolute; left: 0; right: 0; bottom: 104px;
   z-index: 12; text-align: center; padding: 0 6vw;
 }
 .astro-frase {

@@ -43,9 +43,9 @@
     for (const camada of CAMADAS) {
       for (let i = 0; i < camada.quantidade; i++) {
         estrelas.push({
-          x: Math.random() * largura,
+          x: Math.random() * largura * 3,
           // Distribui em 3 alturas de tela: ao rolar, sempre ha estrela nova.
-          y: Math.random() * altura * 3,
+          y: Math.random() * altura,
           raio: aleatorio(camada.raio[0], camada.raio[1]),
           alfa: aleatorio(camada.alfa[0], camada.alfa[1]),
           parallax: camada.parallax,
@@ -99,8 +99,9 @@
 
     for (const e of estrelas) {
       // O modulo faz a estrela reaparecer do outro lado - ceu infinito.
-      const y = ((e.y - deslocamento * e.parallax) % (altura * 3) + altura * 3) % (altura * 3);
-      if (y < -10 || y > altura + 10) continue;
+      const x = ((e.x - deslocamento * e.parallax) % (largura * 3) + largura * 3) % (largura * 3);
+      if (x < -10 || x > largura + 10) continue;
+      const y = e.y % altura;
 
       const cintila = e.brilho && !REDUZIR
         ? 0.55 + Math.sin(tempo * 0.0018 + e.fase) * 0.45
@@ -108,18 +109,18 @@
       const alfa = e.alfa * cintila;
 
       if (e.raio > 1.1) {
-        const halo = ctx.createRadialGradient(e.x, y, 0, e.x, y, e.raio * 4.5);
+        const halo = ctx.createRadialGradient(x, y, 0, x, y, e.raio * 4.5);
         halo.addColorStop(0, corAlfa(e.cor, alfa * 0.4));
         halo.addColorStop(1, corAlfa(e.cor, 0));
         ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(e.x, y, e.raio * 4.5, 0, Math.PI * 2);
+        ctx.arc(x, y, e.raio * 4.5, 0, Math.PI * 2);
         ctx.fill();
       }
 
       ctx.fillStyle = corAlfa(e.cor, alfa);
       ctx.beginPath();
-      ctx.arc(e.x, y, e.raio, 0, Math.PI * 2);
+      ctx.arc(x, y, e.raio, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -134,7 +135,10 @@
 
   function laco(agora) {
     tempo = agora;
-    deslocamento = window.scrollY;
+    // Deck horizontal: o parallax acompanha o eixo X. Metade do valor para o
+    // ceu deslizar menos que o conteudo - e o que cria a profundidade.
+    const palco = document.getElementById("palco");
+    deslocamento = palco ? palco.scrollLeft * 0.5 : 0;
     desenhar();
     requestAnimationFrame(laco);
   }

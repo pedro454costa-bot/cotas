@@ -16,14 +16,17 @@
   });
   const botoes = [...pontos.children];
 
+  const palco = document.getElementById("palco");
+
   function irPara(indice) {
-    const alvo = slides[Math.max(0, Math.min(indice, slides.length - 1))];
-    if (alvo) alvo.scrollIntoView({ behavior: "smooth" });
+    const i = Math.max(0, Math.min(indice, slides.length - 1));
+    palco.scrollTo({ left: slides[i].offsetLeft, behavior: "smooth" });
   }
 
   function slideAtual() {
-    const meio = window.scrollY + window.innerHeight / 2;
-    return slides.findIndex((s) => s.offsetTop <= meio && s.offsetTop + s.offsetHeight > meio);
+    // Arredonda pela largura da janela: com snap ativo o valor cai sempre
+    // proximo de um multiplo exato.
+    return Math.round(palco.scrollLeft / window.innerWidth);
   }
 
   /* --------------------------------------------------------- contadores -- */
@@ -89,8 +92,8 @@
   let ultimoSlide = -1;
 
   function atualizar() {
-    const total = document.body.scrollHeight - window.innerHeight;
-    barra.style.width = `${(window.scrollY / Math.max(total, 1)) * 100}%`;
+    const total = palco.scrollWidth - palco.clientWidth;
+    barra.style.width = `${(palco.scrollLeft / Math.max(total, 1)) * 100}%`;
 
     const atual = slideAtual();
     botoes.forEach((b, i) => b.classList.toggle("ativo", i === atual));
@@ -101,9 +104,27 @@
     }
   }
 
-  window.addEventListener("scroll", atualizar, { passive: true });
+  palco.addEventListener("scroll", atualizar, { passive: true });
   window.addEventListener("resize", atualizar);
   atualizar();
+
+  /* A roda do mouse gera deltaY; sem traduzir para o eixo X o deck nao anda.
+     O trackpad ja manda deltaX em gesto lateral, entao respeitamos o maior
+     dos dois. O trava impede que uma rolagem longa pule varios slides de uma
+     vez - com snap isso deixaria a transicao borrada. */
+  let travado = false;
+  palco.addEventListener("wheel", (ev) => {
+    if (ev.ctrlKey) return;                    // zoom do navegador
+    const delta = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? ev.deltaX : ev.deltaY;
+    if (Math.abs(delta) < 4) return;
+    ev.preventDefault();
+    if (travado) return;
+    travado = true;
+    irPara(slideAtual() + (delta > 0 ? 1 : -1));
+    setTimeout(() => { travado = false; }, 520);
+  }, { passive: false });
+
+  /* Arrastar com o dedo/mouse na horizontal ja e nativo do scroll-snap. */
 
   document.addEventListener("keydown", (ev) => {
     const atual = slideAtual();
