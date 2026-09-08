@@ -1014,12 +1014,13 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
 
 .slide-fluxo .texto { margin-bottom: 18px; }
 
-/* A maquete e alta; o cabecalho do slide encolhe para tudo caber em 100vh. */
-.slide-tela { padding-top: 56px; padding-bottom: 56px; }
-.slide-tela h2 { font-size: clamp(22px, 2.8vw, 34px); margin-bottom: 16px; }
-.slide-tela .etiqueta { margin-bottom: 12px; }
-.slide-tela .texto.nota { margin-top: 12px; }
-.slide-tela .conteudo { max-width: 1340px; }
+/* A maquete manda neste slide: o cabecalho fica no minimo necessario e as
+   margens laterais encolhem, para a tela ganhar todo o espaco possivel. */
+.slide-tela { padding: 40px 2.5vw 52px; }
+.slide-tela .conteudo { max-width: none; }
+.slide-tela h2 { font-size: clamp(19px, 2.3vw, 30px); margin-bottom: 12px; }
+.slide-tela .etiqueta { margin-bottom: 9px; font-size: 10.5px; }
+.slide-tela .texto.nota { margin-top: 10px; font-size: 12px; }
 .slide-fluxo .texto.nota { margin-top: 16px; }
 
 @media (max-width: 1000px) {
@@ -1043,9 +1044,10 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
   border: 1px solid rgba(255,255,255,.12);
   box-shadow: 0 30px 90px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.04);
   background: #1C1F27;
-  max-width: 1320px;
+  /* Sem teto de largura: a tela ocupa o slide inteiro. Numa apresentacao
+     projetada, o produto precisa ser lido do fundo da sala. */
   width: 100%;
-  transform: perspective(2600px) rotateX(1deg);
+  transform: perspective(3200px) rotateX(.8deg);
   transition: transform .7s var(--curva);
 }
 .moldura:hover { transform: perspective(2200px) rotateX(0); }
@@ -1065,7 +1067,12 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
 
 /* A partir daqui e o tema CLARO do sistema, dentro do slide escuro. O
    contraste e proposital: reforca que isto e outro artefato. */
-.app { background: #F6F4F1; color: #191512; font-size: 11px; }
+.app {
+  background: #F6F4F1; color: #191512;
+  /* Escala tipografica propria: com a tela maior, 11px ficava pequeno demais
+     para leitura a distancia. */
+  font-size: clamp(11px, .82vw, 14px);
+}
 
 .app-topo {
   display: flex; align-items: center; gap: 24px;
@@ -1242,7 +1249,7 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
 }
 .app-gaveta {
   position: absolute; top: 0; right: 0; bottom: 0; z-index: 9;
-  width: min(400px, 62%);
+  width: min(460px, 58%);
   background: #fff; color: #191512;
   box-shadow: -14px 0 44px rgba(0,0,0,.32);
   padding: 15px 17px;
