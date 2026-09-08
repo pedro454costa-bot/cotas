@@ -74,12 +74,13 @@ button { cursor: pointer; }
 
 .marca { display: flex; align-items: center; gap: 10px; }
 
-.marca-selo {
-  width: 30px; height: 30px;
-  display: grid; place-items: center;
-  border-radius: 8px;
-  background: linear-gradient(150deg, var(--vinho), var(--vinho-escuro));
-  color: #fff;
+/* Logo institucional no lugar do selo generico. Altura fixa e width auto para
+   nao deformar: o arquivo e 3993x3508, quase quadrado mas nao exatamente. */
+.marca-logo {
+  height: 26px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
 }
 
 .marca div { display: flex; flex-direction: column; line-height: 1.15; }

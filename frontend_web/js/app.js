@@ -3,7 +3,7 @@
 // Marcador de versao: aparece no console assim que a pagina carrega. Serve para
 // saber, sem adivinhacao, se o navegador esta executando o codigo atual ou uma
 // copia velha em cache - erro que ja custou tempo neste projeto.
-const VERSAO_APP = "9";
+const VERSAO_APP = "10";
 console.log(`%cRisk Map · frontend v${VERSAO_APP}`, "color:#7A1128;font-weight:700");
 window.RISKMAP_VERSAO = VERSAO_APP;
 

@@ -1179,3 +1179,93 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
   .moldura { transform: none; }
   .moldura:hover { transform: none; }
 }
+
+/* ─────────────────────────────────── maquete: logo e interacao ─── */
+
+.app-logo { height: 20px; width: auto; display: block; flex-shrink: 0; }
+
+/* O unico elemento clicavel da maquete precisa se anunciar: sem a dica e o
+   realce no hover, ninguem descobre que da para interagir num slide. */
+.app-df.clicavel { cursor: pointer; transition: border-color .25s, background .25s, transform .25s; }
+.app-df.clicavel:hover {
+  background: #fff;
+  border-color: #CFC9C2;
+  border-left-color: #C0392B;
+  transform: translateX(2px);
+}
+.app-df-abrir {
+  margin-top: 5px;
+  font-size: 8px; font-weight: 700; letter-spacing: .05em;
+  color: #C0392B; text-transform: uppercase;
+  opacity: .65; transition: opacity .25s;
+}
+.app-df.clicavel:hover .app-df-abrir { opacity: 1; }
+
+/* A gaveta vive DENTRO da moldura: e a tela do sistema que reage, nao a
+   apresentacao. Sair da moldura quebraria a ilusao. */
+.app-gaveta-fundo {
+  position: absolute; inset: 0; z-index: 8;
+  background: rgba(25,21,18,.38);
+  animation: surgir .18s ease;
+}
+.app-gaveta {
+  position: absolute; top: 0; right: 0; bottom: 0; z-index: 9;
+  width: min(400px, 62%);
+  background: #fff; color: #191512;
+  box-shadow: -14px 0 44px rgba(0,0,0,.32);
+  padding: 15px 17px;
+  overflow-y: auto;
+  animation: entrarLado .26s var(--curva);
+}
+@keyframes surgir { from { opacity: 0; } }
+@keyframes entrarLado { from { transform: translateX(30px); opacity: .3; } }
+
+.app { position: relative; }
+
+.app-gaveta-topo { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.app-gaveta h3 { font-size: 12px; font-weight: 700; line-height: 1.3; margin: 3px 0 0; }
+.app-fechar {
+  border: 0; background: none; font-size: 18px; line-height: 1;
+  color: #857D75; cursor: pointer; padding: 0 3px;
+}
+.app-fechar:hover { color: #191512; }
+
+.app-gaveta h4 {
+  margin: 13px 0 6px;
+  font-size: 7.5px; letter-spacing: .11em; text-transform: uppercase;
+  color: #857D75; font-weight: 700;
+}
+.app-opiniao {
+  font-size: 12px; font-weight: 700;
+  padding: 8px 11px;
+  background: #FBFAF8; border: 1px solid #E4E0DB; border-left: 3px solid #7A1128;
+  border-radius: 5px;
+}
+
+/* Roxo fora da paleta corporativa: o que a maquina escreveu nao pode ser
+   confundido com o que veio do documento. */
+.app-faixa-ia {
+  display: flex; gap: 9px; align-items: flex-start;
+  margin: 12px 0 4px; padding: 8px 10px;
+  background: linear-gradient(135deg, #F4F1FC, #FBFAFE);
+  border: 1px solid #DED5F5; border-radius: 5px;
+}
+.app-faixa-ia p { margin: 0; font-size: 8.5px; line-height: 1.5; color: #514470; }
+.app-selo-ia {
+  flex-shrink: 0; padding: 3px 8px; border-radius: 20px;
+  font-size: 8px; font-weight: 700; white-space: nowrap;
+  background: linear-gradient(135deg, #6C4BD8, #8B5FE6); color: #fff;
+}
+.app-marca-ia {
+  font-style: normal; margin-left: 5px;
+  padding: 1px 5px; border-radius: 3px;
+  font-size: 7px; font-weight: 700; letter-spacing: .06em;
+  background: #EFE9FC; color: #6C4BD8; vertical-align: middle;
+}
+
+.app-citacao {
+  margin: 0; padding: 3px 0 3px 10px;
+  border-left: 2px solid #CFC9C2;
+  font-size: 9.5px; line-height: 1.6; color: #191512;
+}
+.app-impacto { margin: 0; font-size: 9.5px; line-height: 1.65; color: #4A443E; }

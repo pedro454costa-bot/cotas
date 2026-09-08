@@ -472,7 +472,7 @@
           <!-- topo -->
           <div class="app-topo">
             <div class="app-marca">
-              <span class="app-selo"></span>
+              <img class="app-logo" src="assets/bradesco_logo_red.png" alt="Bradesco">
               <div><strong>RISK MAP</strong><span>Fundos de Investimento</span></div>
             </div>
             <div class="app-abas">
@@ -521,11 +521,12 @@
               </div>
 
               <h4>Demonstrações financeiras</h4>
-              <div class="app-df alto">
+              <div class="app-df alto clicavel" id="df-ressalva" role="button" tabindex="0">
                 <div class="app-df-topo"><b>2026</b><span class="s-alto">Alto risco</span></div>
                 <div class="app-df-op">Opinião com ressalva</div>
                 <div class="app-df-just">Não comprovação da titularidade e existência do ativo —
                   ressalva com efeito generalizado, sem quantificação pelo auditor.</div>
+                <div class="app-df-abrir">clique para ver a análise ↗</div>
               </div>
               <div class="app-df medio">
                 <div class="app-df-topo"><b>2025</b><span class="s-medio">Risco médio</span></div>
@@ -538,10 +539,51 @@
               <div class="app-linha"><span>Auditor</span><b>PricewaterhouseCoopers</b></div>
             </div>
           </div>
+
+          <!-- gaveta: abre ao clicar na DF com ressalva -->
+          <div class="app-gaveta-fundo" id="mock-fundo" hidden></div>
+          <aside class="app-gaveta" id="mock-gaveta" hidden>
+            <div class="app-gaveta-topo">
+              <div>
+                <div class="app-cnpj">12.345.678/0001-90 · exercício 2026</div>
+                <h3>MASTER PREV FUNDO DE INVESTIMENTO MULTIMERCADO</h3>
+              </div>
+              <button class="app-fechar" id="mock-fechar" aria-label="Fechar">×</button>
+            </div>
+
+            <h4>Opinião do auditor</h4>
+            <div class="app-opiniao">Opinião com ressalva</div>
+
+            <div class="app-faixa-ia">
+              <span class="app-selo-ia">✦ Gerado por IA</span>
+              <p>A classificação de risco e os textos abaixo foram produzidos por
+                 gpt-5-mini a partir do relatório do auditor. Não substituem a
+                 leitura do documento original.</p>
+            </div>
+
+            <div class="app-selos">
+              <span class="s-alto">Alto risco</span>
+              <span class="s-neutro">PENDENTE</span>
+            </div>
+
+            <h4>Justificativa da classificação <i class="app-marca-ia">IA</i></h4>
+            <p class="app-citacao">Não comprovação da titularidade e existência do
+               ativo — ressalva com efeito generalizado, sem quantificação pelo auditor.</p>
+
+            <h4>Análise de impacto <i class="app-marca-ia">IA</i></h4>
+            <p class="app-impacto">O administrador não disponibilizou os laudos de
+               avaliação dos direitos creditórios adquiridos no exercício, que
+               representam 78% do patrimônio líquido. Como o valor justo dessa
+               carteira não foi verificado, o valor da cota divulgado pode estar
+               superavaliado em magnitude desconhecida. Um resgate hoje seria
+               liquidado a um preço que o auditor não conseguiu confirmar, e uma
+               eventual remarcação atingiria todos os cotistas simultaneamente.</p>
+          </aside>
         </div>
       </div>
 
       <p class="texto nota" data-anima="4">
+        <b>Clique no cartão da DF de 2026</b> para abrir a análise da IA.
         Dados ilustrativos. Os nomes de fundo desta tela são fictícios.
       </p>
     </div>
@@ -554,6 +596,7 @@
 <script src="js/demo.js"></script>
 <script src="js/asteroide.js"></script>
 <script src="js/fluxo.js"></script>
+<script src="js/maquete.js"></script>
 <script src="js/apresentacao.js"></script>
 </body>
 </html>
