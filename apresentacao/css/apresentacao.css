@@ -1013,6 +1013,13 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
 .no-saida .no-tag { background: rgba(79,227,208,.2); color: var(--ciano); }
 
 .slide-fluxo .texto { margin-bottom: 18px; }
+
+/* A maquete e alta; o cabecalho do slide encolhe para tudo caber em 100vh. */
+.slide-tela { padding-top: 56px; padding-bottom: 56px; }
+.slide-tela h2 { font-size: clamp(22px, 2.8vw, 34px); margin-bottom: 16px; }
+.slide-tela .etiqueta { margin-bottom: 12px; }
+.slide-tela .texto.nota { margin-top: 12px; }
+.slide-tela .conteudo { max-width: 1340px; }
 .slide-fluxo .texto.nota { margin-top: 16px; }
 
 @media (max-width: 1000px) {
@@ -1036,8 +1043,9 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
   border: 1px solid rgba(255,255,255,.12);
   box-shadow: 0 30px 90px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.04);
   background: #1C1F27;
-  max-width: 1180px;
-  transform: perspective(2200px) rotateX(1.4deg);
+  max-width: 1320px;
+  width: 100%;
+  transform: perspective(2600px) rotateX(1deg);
   transition: transform .7s var(--curva);
 }
 .moldura:hover { transform: perspective(2200px) rotateX(0); }
@@ -1137,8 +1145,15 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
 
 .app-painel {
   background: #fff; border: 1px solid #E4E0DB; border-radius: 8px;
-  padding: 12px; overflow: hidden;
+  padding: 12px;
+  /* Rolavel: o painel do sistema real tambem rola, e cortar o conteudo dava a
+     impressao de tela pela metade. */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #CFC9C2 transparent;
 }
+.app-painel::-webkit-scrollbar { width: 5px; }
+.app-painel::-webkit-scrollbar-thumb { background: #CFC9C2; border-radius: 3px; }
 .app-cnpj { font-family: var(--mono); font-size: 8.5px; color: #857D75; }
 .app-nome { font-size: 11.5px; font-weight: 700; line-height: 1.3; margin: 3px 0; }
 .app-classe { font-size: 9px; color: #857D75; }
@@ -1194,12 +1209,29 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
   transform: translateX(2px);
 }
 .app-df-abrir {
-  margin-top: 5px;
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 6px; padding: 3px 9px;
+  border-radius: 20px;
   font-size: 8px; font-weight: 700; letter-spacing: .05em;
-  color: #C0392B; text-transform: uppercase;
-  opacity: .65; transition: opacity .25s;
+  color: #fff; background: #C0392B; text-transform: uppercase;
+  /* Pulso continuo: num slide estatico ninguem descobre sozinho que ha algo
+     clicavel. O halo expande e some, como o "toque aqui" de um app. */
+  animation: convite 2.2s ease-in-out infinite;
 }
-.app-df.clicavel:hover .app-df-abrir { opacity: 1; }
+@keyframes convite {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,.55); }
+  55%      { box-shadow: 0 0 0 9px rgba(192,57,43,0); }
+}
+.app-df.clicavel:hover .app-df-abrir { background: #8A2B20; }
+
+/* O cartao inteiro tambem respira, para o olho chegar nele antes do texto. */
+.app-df.clicavel {
+  animation: cartaoConvite 2.2s ease-in-out infinite;
+}
+@keyframes cartaoConvite {
+  0%, 100% { border-color: #E4E0DB; }
+  55%      { border-color: #E9A79D; }
+}
 
 /* A gaveta vive DENTRO da moldura: e a tela do sistema que reage, nao a
    apresentacao. Sair da moldura quebraria a ilusao. */
@@ -1269,3 +1301,32 @@ svg.antes-icone .fina { stroke-width: 1.2; opacity: .6; }
   font-size: 9.5px; line-height: 1.6; color: #191512;
 }
 .app-impacto { margin: 0; font-size: 9.5px; line-height: 1.65; color: #4A443E; }
+
+
+/* ───────────────────────── maquete: historico e fatos relevantes ─── */
+
+.app-cartao {
+  padding: 7px 9px; margin-bottom: 5px;
+  background: #FBFAF8; border: 1px solid #E4E0DB; border-radius: 5px;
+}
+.app-cartao-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.app-cartao-topo b { font-size: 9.5px; }
+.app-vigente {
+  font-size: 7.5px; padding: 1px 6px; border-radius: 10px;
+  background: #E7F4ED; color: #2E8B62; font-weight: 700;
+}
+.app-cartao-tipo { font-size: 7.5px; text-transform: uppercase; letter-spacing: .07em; color: #857D75; margin-top: 2px; }
+.app-cartao-per { font-size: 8.5px; color: #857D75; }
+.app-cartao-alerta { margin-top: 4px; font-size: 8px; font-weight: 700; color: #C0392B; }
+
+.app-fato {
+  padding: 8px 9px; margin-bottom: 5px;
+  background: #FBFAF8; border: 1px solid #E4E0DB;
+  border-left: 3px solid #C98A16; border-radius: 5px;
+}
+.app-fato:first-of-type { border-left-color: #C0392B; }
+.app-fato-topo { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 3px; }
+.app-fato-topo b { font-size: 9px; font-variant-numeric: tabular-nums; }
+.app-fato-topo span { padding: 1px 7px; border-radius: 20px; font-size: 7.5px; font-weight: 700; }
+.app-fato-tit { font-size: 9.5px; font-weight: 600; margin-bottom: 2px; }
+.app-fato-res { font-size: 8.5px; color: #4A443E; line-height: 1.5; }
