@@ -5,8 +5,10 @@
    - o no de risco alto pulsando - que uma imagem estatica nao transmite.
 */
 
-(() => {
-  const canvas = document.getElementById("demo-grafo");
+/* Uma instancia por canvas: o mesmo desenho serve ao slide da interface e a
+   maquete da tela final. */
+function montarGrafoDemo(idCanvas) {
+  const canvas = document.getElementById(idCanvas);
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
 
@@ -132,4 +134,7 @@
   window.addEventListener("resize", dimensionar);
   dimensionar();
   requestAnimationFrame(laco);
-})();
+}
+
+montarGrafoDemo("demo-grafo");
+montarGrafoDemo("mock-grafo");

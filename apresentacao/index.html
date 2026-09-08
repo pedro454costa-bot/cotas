@@ -456,6 +456,97 @@
     </div>
   </section>
 
+  <!-- ─────────────────────────────────────────────── a tela real -->
+  <section class="slide slide-tela" data-titulo="O sistema">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">08 · O sistema em uso</p>
+      <h2 data-anima="2">É assim que o analista <em>vê</em>.</h2>
+
+      <div class="moldura" data-anima="3">
+        <div class="moldura-barra">
+          <span class="moldura-luzes"><i></i><i></i><i></i></span>
+          <span class="moldura-url">risk-map · análise rápida de fundo</span>
+        </div>
+
+        <div class="app">
+          <!-- topo -->
+          <div class="app-topo">
+            <div class="app-marca">
+              <span class="app-selo"></span>
+              <div><strong>RISK MAP</strong><span>Fundos de Investimento</span></div>
+            </div>
+            <div class="app-abas">
+              <span class="ativa">Análise Rápida de Fundo</span>
+              <span>Painel de Monitoramento <i>12</i></span>
+              <span>Lista Negativa <i>3</i></span>
+            </div>
+          </div>
+
+          <!-- busca -->
+          <div class="app-busca">
+            <div class="app-campo">12.345.678/0001-90</div>
+            <div class="app-botao">Analisar</div>
+          </div>
+
+          <!-- veredito -->
+          <div class="app-veredito">
+            <span class="app-veredito-selo">VEDAR INVESTIMENTO</span>
+            <p>Existem riscos críticos na cadeia deste fundo que contraindicam o investimento:
+               2 fundos de risco alto, 51,2% do patrimônio.</p>
+            <div class="app-contadores">
+              <div><b>1</b><span>Lista Neg.</span></div>
+              <div class="alerta"><b>4</b><span>Op. Modif.</span></div>
+              <div><b>7</b><span>Fundos</span></div>
+            </div>
+          </div>
+
+          <!-- palco -->
+          <div class="app-palco">
+            <div class="app-grafo">
+              <canvas id="mock-grafo"></canvas>
+              <div class="app-legenda">
+                <span><i class="pt-alto"></i>Alto risco</span>
+                <span><i class="pt-medio"></i>Médio</span>
+                <span><i class="pt-baixo"></i>Sem apontamento</span>
+              </div>
+            </div>
+
+            <div class="app-painel">
+              <div class="app-cnpj">12.345.678/0001-90</div>
+              <div class="app-nome">MASTER PREV FUNDO DE INVESTIMENTO MULTIMERCADO</div>
+              <div class="app-classe">FIM · Multimercado</div>
+              <div class="app-selos">
+                <span class="s-alto">Alto risco</span>
+                <span class="s-neutro">Fundo investidor · 7</span>
+              </div>
+
+              <h4>Demonstrações financeiras</h4>
+              <div class="app-df alto">
+                <div class="app-df-topo"><b>2026</b><span class="s-alto">Alto risco</span></div>
+                <div class="app-df-op">Opinião com ressalva</div>
+                <div class="app-df-just">Não comprovação da titularidade e existência do ativo —
+                  ressalva com efeito generalizado, sem quantificação pelo auditor.</div>
+              </div>
+              <div class="app-df medio">
+                <div class="app-df-topo"><b>2025</b><span class="s-medio">Risco médio</span></div>
+                <div class="app-df-op">Ênfase / outros assuntos</div>
+              </div>
+
+              <h4>Prestadores de serviço</h4>
+              <div class="app-linha"><span>Administrador</span><b>BV Asset Management DTVM</b></div>
+              <div class="app-linha"><span>Gestor</span><b>BV Asset Management DTVM</b></div>
+              <div class="app-linha"><span>Auditor</span><b>PricewaterhouseCoopers</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="texto nota" data-anima="4">
+        Dados ilustrativos. Os nomes de fundo desta tela são fictícios.
+      </p>
+    </div>
+  </section>
+
 </main>
 
 <script src="js/ceu.js"></script>
