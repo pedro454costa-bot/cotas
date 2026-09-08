@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Risk Map · De planilhas a infraestrutura de IA</title>
+<link rel="stylesheet" href="css/apresentacao.css">
+</head>
+<body>
+
+<canvas id="ceu"></canvas>
+<canvas id="galaxia"></canvas>
+<div class="nebulosa n1"></div>
+<div class="nebulosa n2"></div>
+<div class="nebulosa n3"></div>
+<div class="vinheta"></div>
+
+<div class="progresso"><div class="progresso-barra" id="progresso"></div></div>
+<nav class="pontos" id="pontos"></nav>
+
+<div class="marca-canto">
+  <span class="ponto-vivo"></span> RISK MAP
+</div>
+
+<main id="palco">
+
+  <!-- 0 ───────────────────────────────────────────── abertura -->
+  <section class="slide portada" data-titulo="Capa" data-morph="0">
+    <div class="portada-conteudo">
+      <img class="portada-logo" src="assets/bradesco_logo_white.png"
+           alt="Bradesco" data-anima="1">
+
+      <div class="portada-fio" data-anima="2"></div>
+
+      <h1 class="portada-titulo" data-anima="3">
+        Sistema de Análise de<br>
+        <span>Cotas de Fundos de Investimento</span>
+      </h1>
+
+      <p class="portada-frase" data-anima="4">O futuro começa agora.</p>
+
+      <p class="portada-assinatura" data-anima="5">
+        Área de Risco · 2026
+      </p>
+    </div>
+  </section>
+
+  <!-- 1 ─────────────────────────────────────────────── capa -->
+  <section class="slide astro" data-titulo="Abertura" data-morph="0">
+    <div class="astro-titulo esquerda" data-anima="2">INFRAESTRUTURA</div>
+    <div class="astro-titulo direita" data-anima="2">DE IA</div>
+
+    <div class="astro-rodape">
+      <div class="astro-scrim"></div>
+      <p class="astro-frase" data-anima="3">que calcula risco de ponta a ponta</p>
+      <p class="astro-nota" data-anima="4">
+        Do documento bruto da CVM à decisão do analista — sem digitação,
+        sem planilha intermediária, sem ponto cego na cadeia.
+      </p>
+    </div>
+
+    <div class="dica-rolagem" data-anima="5">
+      <span>role para navegar</span>
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 4v14m0 0-6-6m6 6 6-6" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+    </div>
+  </section>
+
+  <!-- 2 ────────────────────────────── a galaxia vira universo de fundos -->
+  <section class="slide astro-universo" data-titulo="O universo" data-morph="1">
+    <div class="conteudo centro">
+      <p class="sobrelinha" data-anima="1">
+        <span class="ponto-vivo"></span> as mesmas estrelas, agora legíveis
+      </p>
+      <h2 class="astro-h2" data-anima="2">
+        Cada ponto é um <em>fundo</em>.<br>Cada cor, um <em>risco</em>.
+      </h2>
+      <div class="universo-legenda" data-anima="3">
+        <span><i style="background:#FF5A6E;box-shadow:0 0 12px #FF5A6E"></i>1.523 alto risco</span>
+        <span><i style="background:#FFB020;box-shadow:0 0 12px #FFB020"></i>2.564 risco médio</span>
+        <span><i style="background:#31D0AA;box-shadow:0 0 12px #31D0AA"></i>872 sem apontamento</span>
+        <span><i style="background:#5A6575;box-shadow:0 0 12px #5A6575"></i>não analisados</span>
+      </div>
+      <p class="astro-nota estreita" data-anima="4">
+        Agrupados por classe. O que era uma nuvem indistinta de 31 mil fundos
+        passa a ter forma, densidade e pontos de atenção.
+      </p>
+    </div>
+  </section>
+
+  <!-- 3 ─────────────────────────────────────────── o problema -->
+  <section class="slide" data-titulo="O ponto de partida">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">01 · O ponto de partida</p>
+      <h2 data-anima="2">O trabalho era <em>ler</em>.</h2>
+
+      <div class="partida-grade">
+        <!-- Reproducao de formulario legado: e mais eloquente que descrever. -->
+        <div class="janela-legada" data-anima="3" aria-label="Interface legada de cadastro">
+          <div class="janela-barra">
+            <span class="janela-titulo">Cadastro de Opinião do Auditor — [Formulário1]</span>
+            <span class="janela-botoes"><i></i><i></i><i class="fechar"></i></span>
+          </div>
+          <div class="janela-menu">
+            <span>Arquivo</span><span>Editar</span><span>Exibir</span>
+            <span>Inserir</span><span>Registros</span><span>Ajuda</span>
+          </div>
+          <div class="janela-corpo">
+            <label>CNPJ do Fundo <input value="07.324.731/0001-31" readonly></label>
+            <label>Exercício <input value="2024" readonly></label>
+            <label>Opinião <select disabled><option>Com ressalva</option></select></label>
+            <label>Classificação <select disabled><option>Médio</option></select></label>
+            <label class="largo">Observações
+              <textarea readonly>Auditor apontou limitação de escopo. Verificar nota 12. Confirmar com analista responsável antes de fechar…</textarea>
+            </label>
+            <div class="janela-acoes">
+              <button disabled>Gravar</button>
+              <button disabled>Cancelar</button>
+              <span class="janela-registro">Registro: 14 de 36.889</span>
+            </div>
+          </div>
+          <div class="janela-status">Pronto · CAPS · NUM</div>
+        </div>
+
+        <div class="partida-lista">
+          <p class="texto compacto" data-anima="3">
+            A classificação de risco de um fundo dependia de alguém abrir o PDF
+            do relatório do auditor, encontrar a seção de opinião, interpretar o
+            que estava escrito e digitar o resultado numa tela como esta.
+          </p>
+
+          <div class="antes-grade" data-anima="4">
+            <div class="antes-item">
+              <svg viewBox="0 0 24 24" class="antes-icone"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5v-12Z"/><path d="M3 11h18" class="fina"/></svg>
+              <strong>Interface legada</strong>
+              <span>Formulários de entrada manual, sem integração com as bases da CVM</span>
+            </div>
+            <div class="antes-item">
+              <svg viewBox="0 0 24 24" class="antes-icone"><path d="M4 20h4l10-10a2.5 2.5 0 0 0-3.5-3.5L4.5 16.5 4 20Z"/><path d="M13.5 6.5 17 10" class="fina"/></svg>
+              <strong>Input manual</strong>
+              <span>Cada opinião de auditor lida, interpretada e digitada por uma pessoa</span>
+            </div>
+            <div class="antes-item">
+              <svg viewBox="0 0 24 24" class="antes-icone"><circle cx="7" cy="7" r="2.6"/><circle cx="17.5" cy="6" r="2"/><circle cx="12" cy="17.5" r="2"/><path d="M9.2 8.6 10.9 15.7M9.1 6.4l6.5-.3" class="fina"/></svg>
+              <strong>Sem visão de cadeia</strong>
+              <span>O risco que chega pelo fundo investido não aparecia em lugar nenhum</span>
+            </div>
+            <div class="antes-item">
+              <svg viewBox="0 0 24 24" class="antes-icone"><path d="M7 3h10M7 21h10M8 3c0 4 8 5 8 9s-8 5-8 9" class="fina"/><path d="M9.5 18.5h5c0-2-2.5-3-2.5-3s-2.5 1-2.5 3Z"/></svg>
+              <strong>Escala impossível</strong>
+              <span>O volume crescia todo ano; o número de analistas, não</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 ──────────────────────────────────────── a dimensão -->
+  <section class="slide" data-titulo="A dimensão">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">02 · A dimensão do problema</p>
+      <h2 data-anima="2">O que existe para ser lido.</h2>
+
+      <div class="numeros" data-anima="3">
+        <div class="numero">
+          <b data-contar="86603">0</b>
+          <span>documentos de auditoria</span>
+        </div>
+        <div class="numero">
+          <b data-contar="31515">0</b>
+          <span>fundos no cadastro</span>
+        </div>
+        <div class="numero">
+          <b data-contar="209586">0</b>
+          <span>relações na cadeia CDA</span>
+        </div>
+        <div class="numero">
+          <b data-contar="136739">0</b>
+          <span>registros de prestadores</span>
+        </div>
+      </div>
+
+      <p class="texto destaque-caixa" data-anima="4">
+        Um analista experiente lê um relatório em <b>4 minutos</b>.
+        Os 38.950 documentos com texto extraído levariam
+        <b>cerca de 2.600 horas</b> — mais de um ano de trabalho
+        em tempo integral, para uma única passagem.
+      </p>
+    </div>
+  </section>
+
+  <!-- 4 ──────────────────────────────────────────── a virada -->
+  <section class="slide" data-titulo="A virada">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">03 · A virada</p>
+      <h2 data-anima="2">Trocar o esforço por <em>infraestrutura</em>.</h2>
+
+      <div class="fluxo" data-anima="3">
+        <div class="fluxo-etapa">
+          <div class="fluxo-selo">CVM</div>
+          <strong>Coleta</strong>
+          <span>Pipelines diários, semanais e mensais baixam cadastro, carteiras e documentos</span>
+        </div>
+        <div class="fluxo-seta"></div>
+        <div class="fluxo-etapa">
+          <div class="fluxo-selo">PDF</div>
+          <strong>Extração</strong>
+          <span>Recorte cirúrgico da seção de opinião — só o que importa vai adiante</span>
+        </div>
+        <div class="fluxo-seta"></div>
+        <div class="fluxo-etapa">
+          <div class="fluxo-selo">TRIAGEM</div>
+          <strong>Filtro</strong>
+          <span>Regras determinísticas resolvem 61% dos casos sem custo de IA</span>
+        </div>
+        <div class="fluxo-seta"></div>
+        <div class="fluxo-etapa destaque">
+          <div class="fluxo-selo">IA</div>
+          <strong>Análise</strong>
+          <span>O modelo lê, classifica o risco e escreve a análise de impacto</span>
+        </div>
+        <div class="fluxo-seta"></div>
+        <div class="fluxo-etapa">
+          <div class="fluxo-selo">RISCO</div>
+          <strong>Decisão</strong>
+          <span>O analista revisa a fila priorizada em vez de ler tudo</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 ────────────────────────────────────────────── a matriz -->
+  <section class="slide" data-titulo="A matriz">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">04 · Como a IA decide</p>
+      <h2 data-anima="2">A IA não opina. Ela <em>aplica uma matriz</em>.</h2>
+      <p class="texto" data-anima="3">
+        Pedir uma nota de risco a um modelo produz resultado instável e
+        indefensável. Em vez disso, ele responde duas perguntas objetivas —
+        e a classificação sai do cruzamento.
+      </p>
+
+      <div class="matriz" data-anima="4">
+        <div class="matriz-cabecalho">
+          <span></span><span>Pontual</span><span>Relevante</span><span>Generalizado</span>
+        </div>
+        <div class="matriz-linha"><span>Sem ressalva</span><i class="c-baixo">Baixo</i><i class="c-baixo">Baixo</i><i class="c-nulo">—</i></div>
+        <div class="matriz-linha"><span>Encerramento</span><i class="c-baixo">Baixo</i><i class="c-baixo">Baixo</i><i class="c-baixo">Baixo</i></div>
+        <div class="matriz-linha"><span>Ênfase / outros</span><i class="c-baixo">Baixo</i><i class="c-medio">Médio</i><i class="c-alto">Alto</i></div>
+        <div class="matriz-linha"><span>Continuidade</span><i class="c-medio">Médio</i><i class="c-alto">Alto</i><i class="c-alto">Alto</i></div>
+        <div class="matriz-linha"><span>Ressalva</span><i class="c-medio">Médio</i><i class="c-medio">Médio</i><i class="c-alto">Alto</i></div>
+        <div class="matriz-linha"><span>Adversa</span><i class="c-alto">Alto</i><i class="c-alto">Alto</i><i class="c-alto">Alto</i></div>
+        <div class="matriz-linha"><span>Abstenção</span><i class="c-nulo">—</i><i class="c-alto">Alto</i><i class="c-alto">Alto</i></div>
+      </div>
+
+      <p class="texto nota" data-anima="5">
+        Reprodutível, auditável e recalibrável: mudar a política de risco é
+        editar uma célula, não reescrever um modelo.
+      </p>
+    </div>
+  </section>
+
+  <!-- 6 ──────────────────────────────────────────── resultados -->
+  <section class="slide" data-titulo="Resultados">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">05 · O que já roda</p>
+      <h2 data-anima="2">Do piloto à produção.</h2>
+
+      <div class="resultados" data-anima="3">
+        <div class="resultado forte">
+          <b data-contar="2968">0</b>
+          <span>análises geradas</span>
+          <em>exercício 2026, em 29 minutos</em>
+        </div>
+        <div class="resultado">
+          <b data-contar="4959">0</b>
+          <span>fundos classificados</span>
+          <em>1.523 em risco alto</em>
+        </div>
+        <div class="resultado">
+          <b data-prefixo="R$ " data-contar="30">0</b>
+          <span>custo da rodada</span>
+          <em>base inteira de 2026</em>
+        </div>
+        <div class="resultado">
+          <b data-sufixo="/51" data-contar="51">0</b>
+          <span>concordância na validação</span>
+          <em>contra a leitura determinística</em>
+        </div>
+      </div>
+
+      <div class="destaque-linha" data-anima="4">
+        <div class="destaque-bloco">
+          <b data-contar="12">0</b>
+          <span>casos marcados para revisão humana — de 2.968.<br>
+          O sistema sabe quando não sabe.</span>
+        </div>
+        <div class="destaque-bloco alerta">
+          <b data-contar="2318">0</b>
+          <span>falsos alertas evitados ao separar fundo encerrado<br>
+          de fundo em risco de continuidade.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 ─────────────────────────────────────────────── a tela -->
+  <section class="slide slide-asteroide" data-titulo="A interface">
+    <canvas id="asteroide"></canvas>
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">06 · A interface</p>
+      <h2 data-anima="2">O risco deixou de ser <em>lista</em>. Virou <em>mapa</em>.</h2>
+      <p class="texto" data-anima="3">
+        Um fundo raramente carrega o próprio risco: ele herda da cadeia em que
+        investe. A tela mostra a estrutura inteira, com o tamanho de cada nó
+        representando a exposição real do patrimônio analisado.
+      </p>
+      <div class="demo" data-anima="4">
+        <canvas id="demo-grafo"></canvas>
+        <div class="demo-legenda">
+          <span><i class="pt-alto"></i>Alto risco — pulsa em alerta</span>
+          <span><i class="pt-medio"></i>Risco médio</span>
+          <span><i class="pt-baixo"></i>Sem apontamento</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 ─────────────────────────────────────────── o princípio -->
+  <section class="slide" data-titulo="O princípio">
+    <div class="conteudo">
+      <p class="etiqueta" data-anima="1">07 · O princípio</p>
+      <h2 data-anima="2">A IA não decide. Ela <em>prioriza</em>.</h2>
+
+      <div class="principios" data-anima="3">
+        <div class="principio">
+          <span class="principio-num">01</span>
+          <strong>Toda análise é rastreável</strong>
+          <p>Modelo, versão da matriz e data ficam gravados. Daqui a um ano ainda
+             se sabe com o que cada fundo foi classificado.</p>
+        </div>
+        <div class="principio">
+          <span class="principio-num">02</span>
+          <strong>O que é gerado por máquina está marcado</strong>
+          <p>A tela separa visualmente o fato do documento da leitura da IA.
+             Ninguém confunde uma coisa com a outra.</p>
+        </div>
+        <div class="principio">
+          <span class="principio-num">03</span>
+          <strong>Ausência não é ausência de risco</strong>
+          <p>Documento ilegível vira <em>indeterminado</em>, nunca <em>baixo</em>.
+             Fundo sem análise não é fundo seguro.</p>
+        </div>
+        <div class="principio">
+          <span class="principio-num">04</span>
+          <strong>A palavra final é humana</strong>
+          <p>O analista confirma, questiona ou escala. A IA entrega a fila
+             ordenada — não a decisão.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 ───────────────────────────────────────────── fechamento -->
+  <section class="slide capa" data-titulo="Próximo horizonte">
+    <div class="conteudo centro">
+      <p class="sobrelinha" data-anima="1">O que vem a seguir</p>
+      <h1 class="titulo-gigante" data-anima="2">
+        <span class="linha">Severidade</span>
+        <span class="linha destaque">× exposição</span>
+      </h1>
+      <p class="subtitulo" data-anima="3">
+        A próxima camada cruza o risco de cada fundo com quanto a rede
+        realmente tem investido nele. Uma abstenção num fundo sem investidores
+        é ruído. Uma ressalva numa cadeia de meio bilhão é prioridade um.
+      </p>
+      <div class="proximos" data-anima="4">
+        <span>Descasamento de prazos</span>
+        <span>Cadeia contaminada</span>
+        <span>Lista negativa automática</span>
+        <span>Histórico e recorrência</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="js/ceu.js"></script>
+<script src="js/galaxia.js"></script>
+<script src="js/demo.js"></script>
+<script src="js/asteroide.js"></script>
+<script src="js/apresentacao.js"></script>
+</body>
+</html>
